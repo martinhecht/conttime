@@ -1,14 +1,36 @@
 
-library( ctglm ) #  version 0.0.24 ... in s$call weiter unten ist die run syntax, dort stehen weitere Pakete die man braucht, nämlich:
+# install.packages( "rjags" )
+# install.packages( "doParallel" )
+# install.packages( "abind" )
+# install.packages( "shinystan" )
+# install.packages( "coda" )
+# install.packages( "modeest" )
+# install.packages( "ctsem" )
+# install.packages( "ctsemOMX" )
+# install.packages( "psych" )
+
+# library( ctglm ) #  version 0.0.24 ... in s$call weiter unten ist die run syntax, dort stehen weitere Pakete die man braucht, nämlich:
+require( ctsemOMX )
+require( reshape2 )
 require( 'rjags' )
 require( 'doParallel' )
 require( 'abind' )
 
+user.profile <- shell( "echo %USERPROFILE%", intern=TRUE )
+Rfiles.folder <- file.path( user.profile,
+                                    "Dropbox/139_conttime/conttime/R" )
+Rfiles <- list.files( Rfiles.folder , pattern="*.R" )
+# Rfiles <- Rfiles[ !Rfiles %in% c("optmze.R","RcppExports.R","Examples with Different Inputs.R","Try to Optimize.R") ]
+for( Rfile in Rfiles ){
+	source( file.path( Rfiles.folder, Rfile ) )
+}
+
+
 # Daten
-load( "n:/Dropbox/IQB/Projekte/ctirt/simdata/dats/sim109/01_simdat/simdat_charge1/J4T6A2Qt3M2S1r1.Rdata" )
+load( file.path( user.profile, "Dropbox/139_conttime/conttime/inst/datafiles/J4T6A2Qt3M2S1r1.Rdata" ) )
 
 ### wahre Modellparameter 
-load("n:/Dropbox/IQB/Projekte/ctirt/J4T1A2Qt3M2S1r1_true.Rdata")
+load( file.path( user.profile, "Dropbox/139_conttime/conttime/inst/datafiles/J4T1A2Qt3M2S1r1_true.Rdata" ) )
 
 ### ggf. Datensatz reduzieren
 id <- sample ( 1:1000, 400, FALSE)
@@ -30,7 +52,7 @@ chains <- 1   # 8
 iter <- 25000   # mehrere stufen: 100000; 250000, 500000
 thin <- 125     # 250
 burnin <- 100   # 100, 200, 400 Achtung, thin mit berücksichtigen
-work.dir <- "n:/Dropbox/IQB/Projekte/ctirt/simdata/dats/sim109/10_simdat_25000_core8"
+work.dir <- "c:/Users/martin/Desktop/temp"
                                                                         
 # Syntax generieren
 s <- ctglm.syntax( m=m, model.name="TEST", cores=chains )
