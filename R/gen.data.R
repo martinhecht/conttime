@@ -127,7 +127,7 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 
 		for( j in 1:N ){
 			# theta, first time point, Eq. 17
-			thetajp[,1,j,1] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmawjp[,,j,1] )
+			thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,p,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
 			for( p in 2:Tj[j] ){
 				# omegajp, Eq. 15
 				omegajp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=Qstarjp[,,j,p-1] )
@@ -167,24 +167,24 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 
 
 ### development
-# user.profile <- shell( "echo %USERPROFILE%", intern=TRUE )
-# Rfiles.folder <- file.path( user.profile,
-                                    # "Dropbox/139_conttime/conttime/R" )
-# Rfiles <- list.files( Rfiles.folder , pattern="*.R" )
-# Rfiles <- Rfiles[ !Rfiles %in% c("gen.data.R") ]
-# for( Rfile in Rfiles ){
-	# source( file.path( Rfiles.folder, Rfile ) )
-# }
+user.profile <- shell( "echo %USERPROFILE%", intern=TRUE )
+Rfiles.folder <- file.path( user.profile,
+                                    "Dropbox/139_conttime/conttime/R" )
+Rfiles <- list.files( Rfiles.folder , pattern="*.R" )
+Rfiles <- Rfiles[ !Rfiles %in% c("gen.data.R") ]
+for( Rfile in Rfiles ){
+	source( file.path( Rfiles.folder, Rfile ) )
+}
 
 # m <- gen.data()
 # ls( envir=m )
 
-# while( TRUE ){
+while( TRUE ){
 	# e <- gen.empty.structures()
-	# e <- gen.empty.structures(T=5,N=8,F=2,I=11)
-	# m <- gen.data(env=e)
-	# print( get( "Tj", envir=m, inherits=FALSE ) ); flush.console()
-# }
+	e <- gen.empty.structures(T=5,N=8,F=2,I=11)
+	m <- gen.data(env=e)
+	print( get( "Tj", envir=m, inherits=FALSE ) ); flush.console()
+}
 
 # get( "Tj", envir=m, inherits=FALSE )
 # get( "yjp", envir=m, inherits=FALSE )

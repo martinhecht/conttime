@@ -1,7 +1,7 @@
 Package: conttime
 Type: Package
 Title: What the Package Does in One 'Title Case' Line
-Version: 0.0.1
+Version: 0.0.2
 Date: 2024-04-10
 Author: Your Name
 Maintainer: Your Name <your@email.com>
@@ -9,5 +9,5 @@ Description: One paragraph description of what the package does as one or more f
 License: GPL (>= 2)
 Depends: 
 Suggests: 
-Imports: ctsem, reshape2, ggplot2, rstan, shinystan, coda, plyr, abind, doParallel, parallel, stats, utils, modeest, psych
+Imports: mvtnorm, expm, ctsem, reshape2, ggplot2, rstan, shinystan, coda, plyr, abind, doParallel, parallel, stats, utils, modeest, psych
 LinkingTo: 
