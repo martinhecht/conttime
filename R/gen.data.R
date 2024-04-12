@@ -33,24 +33,7 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=env)" ) ) )
 		}
 
-		## gen design characteristics
-		# Tj
-		Tj <- as.integer( sample( as.character(min(2,T):T), N, replace = TRUE ) )
-		# deltajp
-		for( j in 1:N ){
-			for( p in 1:(Tj[j]-1) ){
-				deltajp[j,p] <- sample( c(0.5,1,1.5), 1 )
-			}
-		}
-		# tjp
-		for( j in 1:N ){
-			# first time point
-			tjp[j,1] <- sample( c(-1,-0.5,0,0.5,1), 1 )
-			for( p in 2:Tj[j] ){
-				tjp[j,p] <- tjp[j,p-1] + deltajp[j,p-1]
-			}
-		}
-		
+		### default values for model parameters
 		A0[] <- 0.1
 		diag( A0 ) <- -0.75
 		Q0[] <- 0.25
@@ -90,25 +73,82 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 		SigmaepsQ[] <- 0
 		diag( SigmaepsQ ) <- 0.0025
 		Sigmaepsmu[] <- 0
-		diag( Sigmaepsmu ) <- 0.0025
+		diag( Sigmaepsmu ) <- 0.0025		
 
-		# muj, Eq. 8
+		Sigmaeps[] <- 0
+		diag( Sigmaeps ) <- 0.10
+
+		## gen design characteristics
+		# Tj
+		Tj <- as.integer( sample( as.character(min(2,T):T), N, replace = TRUE ) )
+		# deltajp
 		for( j in 1:N ){
-			muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu )
+			for( p in 1:(Tj[j]-1) ){
+				deltajp[j,p] <- sample( c(0.5,1,1.5), 1 )
+			}
+		}
+		# tjp
+		for( j in 1:N ){
+			# first time point
+			tjp[j,1] <- sample( c(-1,-0.5,0,0.5,1), 1 )
+			for( p in 2:Tj[j] ){
+				tjp[j,p] <- tjp[j,p-1] + deltajp[j,p-1]
+			}
+		}
+
+		# all unique time points
+		tunique <- unique( sort ( sapply( tjp, "c" ) ) )
+		tunique <- tunique[ !is.na( tunique ) ]
+		# number of unique time points
+		# !!!predefined in gen.empty.structures!!!
+		# adjust here
+		if( ( Tuniquenew <- length( tunique ) ) <= Tunique ){
+			Tunique <- Tuniquenew
+		} else stop( "predefined Tunique is lower than empirical Tunique" )
+		# indices of individual time points in tunique vector
+		ptuniquejp <- tjp
+		for ( r in 1:nrow(ptuniquejp) ){
+			for ( c in 1:ncol(ptuniquejp) ){
+				if( !is.na( ptuniquejp[r,c] ) ){
+					ptuniquejp[r,c] <- which( tunique %in% ptuniquejp[r,c] )
+				}
+			}
+		}
+
+		# time-varying parameters
+		for( p in 1:Tunique ){
+			# Eq. 2
+			epsAt[,,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
+			At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) ) )
+			# Eq. 3
+			epsQt[,,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
+			Qt[,,p] <- irow( S1 %*% row( Q0 + Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) )
+			# Eq. 10
+			epsmut[,1,p] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmaepsmu )
+			# Eq. 9
+			mut[,1,p] <- mu0 + muchange*tunique[p] + as.matrix( epsmut[,1,p,drop=FALSE] )
 		}
 		
+		# individualization
 		for( j in 1:N ){
+			# muj, Eq. 8
+			muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu )
 			for( p in 1:Tj[j] ){
 				# Eq. 2
-				epsAjp[,,j,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
-				Ajp[,,j,p] <- irow( S1 %*% row( A0 + Achange*tjp[j,p] + irow(epsAjp[,,j,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tjp[j,p] + irow(epsAjp[,,j,p,drop=FALSE]) ) ) ) )
+				# epsAjp[,,j,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
+				# Ajp[,,j,p] <- irow( S1 %*% row( A0 + Achange*tjp[j,p] + irow(epsAjp[,,j,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tjp[j,p] + irow(epsAjp[,,j,p,drop=FALSE]) ) ) ) )
 				# Eq. 3
-				epsQjp[,,j,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
-				Qjp[,,j,p] <- irow( S1 %*% row( Q0 + Qchange*tjp[j,p] + irow(S3%*%epsQjp[,,j,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tjp[j,p] + irow(S3%*%epsQjp[,,j,p,drop=FALSE]) ) ) )
+				# epsQjp[,,j,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
+				# Qjp[,,j,p] <- irow( S1 %*% row( Q0 + Qchange*tjp[j,p] + irow(S3%*%epsQjp[,,j,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tjp[j,p] + irow(S3%*%epsQjp[,,j,p,drop=FALSE]) ) ) )
 				# Eq. 10
-				epsmujp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmaepsmu )
+				# epsmujp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmaepsmu )
 				# Eq. 9
-				mujp[,1,j,p] <- mu0 + muchange*tjp[j,p] + as.matrix( epsmujp[,1,j,p,drop=FALSE] ) + as.matrix( muj[,1,j,drop=FALSE] )
+				# mujp[,1,j,p] <- mu0 + muchange*tjp[j,p] + as.matrix( epsmujp[,1,j,p,drop=FALSE] ) + as.matrix( muj[,1,j,drop=FALSE] )
+				
+				# Eq. 11
+				Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]				
+				Qjp[,,j,p] <- Qt[,,ptuniquejp[j,p]]
+				mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
 				# Ahash, Eq. 14
 				Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
 				# Sigmaw, Eq. 14
@@ -127,7 +167,7 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 
 		for( j in 1:N ){
 			# theta, first time point, Eq. 17
-			thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,p,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
+			thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,1,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
 			for( p in 2:Tj[j] ){
 				# omegajp, Eq. 15
 				omegajp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=Qstarjp[,,j,p-1] )
@@ -145,9 +185,6 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 		if( any( rs <- rowSums( Delta ) == 0 ) ){
 			Delta[which(rs),F] <- 1
 		}
-
-		Sigmaeps[] <- 0
-		diag( Sigmaeps ) <- 0.10
 		
 		for( j in 1:N ){
 			for( p in 1:Tj[j] ){
@@ -157,6 +194,9 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 				yjp[,1,j,p] <- Delta %*% as.matrix( thetajp[,1,j,p,drop=FALSE] ) + as.matrix( epsjp[,1,j,p,drop=FALSE] )
 			}
 		}
+
+		# checks
+		# if( j==N & all(is.na(yjp[,1,N,])) ) browser()
 		
 		env2 <- new.env()
 		for( i in 1:length( str.names ) ){
@@ -186,14 +226,15 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 	# print( get( "Tj", envir=m, inherits=FALSE ) ); flush.console()
 # }
 
-# get( "Tj", envir=m, inherits=FALSE )
-# get( "yjp", envir=m, inherits=FALSE )
+# ( Tj <- get( "Tj", envir=m, inherits=FALSE ) )
+# ( yjp <- get( "yjp", envir=m, inherits=FALSE ) )
 # get( "Delta", envir=m, inherits=FALSE )
 # get( "Sigmaeps", envir=m, inherits=FALSE )
 # get( "A0", envir=m, inherits=FALSE )
 # get( "Achange", envir=m, inherits=FALSE )
 # get( "Tj", envir=m, inherits=FALSE )
 # get( "deltajp", envir=m, inherits=FALSE )
+# get( "N", envir=m, inherits=FALSE )
 
 
 
