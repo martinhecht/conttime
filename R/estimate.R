@@ -37,8 +37,8 @@ run.dir="C:/users/martin/Desktop/temp"
 		# if no data provided, get empty structures and gen data
 		if( is.null( data.env ) ) {
 			str.env <- gen.empty.structures(I=4)
-			data.env <- gen.data( env=str.env, seed=12345 )
-			# data.env <- gen.data( env=str.env )
+			# data.env <- gen.data( env=str.env, seed=12345 )
+			data.env <- gen.data( env=str.env )
 		}
 		# put all relevant data and model parameter elements from data environment here
 		# names <- ls(envir=env)
@@ -49,11 +49,6 @@ run.dir="C:/users/martin/Desktop/temp"
 			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=data.env)" ) ) )
 		}
 		print( Tj ); flush.console()
-		
-		# Stan doesn't allow NA in data, replace by 999999
-		# yjp[ is.na( yjp ) ] <- 999999999
-		yjp[ is.na( yjp ) ] <- 0
-		# yjp[ is.na( yjp ) ] <- 123456789
 
 		# ids (j) need to be sorted by number of time points
 		resort.ind <- do.call( "c", sapply( unique( sort( Tj ) ), function( T ) which( Tj %in% T ), simplify=FALSE ) )
@@ -71,7 +66,10 @@ run.dir="C:/users/martin/Desktop/temp"
 		NperT <- sapply( Tj.list, length )
 		# shifted cumulated number of persons per T (starting from 0 for 1st time point)
 		NperTcum <- c( 0, cumsum( NperT )[Tjn-1] )
-		
+
+		# split data into a list with person groups with same number of time points and delete NAs due to missing time points
+		yjpT <- mapply( function( js, Tj ) yjp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
+		names( yjpT ) <- paste0( "yjpT", uniqueTj )
 
 		# Tests
 		### Delta[2,1] <- "lambda21"
@@ -130,19 +128,21 @@ run.dir="C:/users/martin/Desktop/temp"
 		
 		## data
 		x <- c( x, paste0( "data {" ) )
-		x <- c( x, paste0( "  int<lower=1> F; // number of processes" ) )
-		x <- c( x, paste0( "  int<lower=1> I; // number of items" ) )
-		x <- c( x, paste0( "  int<lower=1> N; // number of persons" ) )
-		x <- c( x, paste0( "  int<lower=2> T; // number of maximum time points of persons" ) )
-		x <- c( x, paste0( "  int<lower=2> Tunique; // number of all unique time points" ) )
-		# x <- c( x, paste0( "  array[N] int Tj; // number of individual time points" ) )
-		x <- c( x, paste0( "  int<lower=2> Tj[N]; // number of individual time points" ) )
-		x <- c( x, paste0( "  int<lower=1> Tjn; // number of different individual time points" ) )
-		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"Tjlow[Tjn]","Tjlow"),"; // indices vectors (lower/upper range) for persons with same number of time points" ) )
-		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"Tjup[Tjn]","Tjup"),";" ) )
-		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"NperT[Tjn]","NperT"),"; // number of persons per T" ) )
-		x <- c( x, paste0( "  int<lower=0> ",ifelse(Tjn>1,"NperTcum[Tjn]","NperTcum"),"; // shifted cumulated number of persons per T (starting from 0 for 1st time point)" ) )
-		x <- c( x, paste0( "  real yjp[I,1,N,T]; // responses of persons per time points" ) )
+		x <- c( x, paste0( "  int<lower=1> F;             // ",paste(F,collapse=',')," | number of processes" ) )
+		x <- c( x, paste0( "  int<lower=1> I;             // ",paste(I,collapse=',')," | number of items" ) )
+		x <- c( x, paste0( "  int<lower=1> N;             // ",paste(N,collapse=',')," | number of persons" ) )
+		x <- c( x, paste0( "  int<lower=2> T;             // ",paste(T,collapse=',')," | number of maximum time points of persons" ) )
+		x <- c( x, paste0( "  int<lower=2> Tunique;       // ",paste(Tunique,collapse=',')," | number of all unique time points" ) )
+		x <- c( x, paste0( "  int<lower=2> ",ifelse(N>1,"Tj[Tjn]","Tj"),";",ifelse(N>1,"","   "),"         // ",paste(Tj,collapse=',')," | number of individual time points" ) )
+		x <- c( x, paste0( "  int<lower=1> Tjn;           // ",paste(Tjn,collapse=',')," | number of different individual time points" ) )
+		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"Tjlow[Tjn]","Tjlow"),";",ifelse(N>1,"","     "),"    // ",paste(Tjlow,collapse=',')," | indices vectors (lower/upper range) for persons with same number of time points" ) )
+		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"Tjup[Tjn]","Tjup"),";",ifelse(N>1,"","     "),"     // ",paste(Tjup,collapse=',') ) )
+		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"NperT[Tjn]","NperT"),";",ifelse(N>1,"","     "),"    // ",paste(NperT,collapse=',')," | number of persons per T" ) )
+		x <- c( x, paste0( "  int<lower=0> ",ifelse(Tjn>1,"NperTcum[Tjn]","NperTcum"),";",ifelse(N>1,"","     ")," // ",paste(NperTcum,collapse=',')," | shifted cumulated number of persons per T (starting from 0 for 1st time point)" ) )
+		# observed values of persons with same number of time points
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real yjpT",uniqueTj[i],"[I,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"]; // observed values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		}
 		# fixed structures go in as data
 		if( length( wifis <- which( structure.type %in% "fixed" ) ) > 0 ){
 			for( st in names( structure.type[wifis] ) ){
@@ -155,7 +155,6 @@ run.dir="C:/users/martin/Desktop/temp"
 		## transformed data
 		# x <- c( x, paste0( "transformed data {" ) )
 		# x <- c( x, paste0( "  int Tjlow[2] = {1,5};" ) )			
-		# x <- c( x, paste0( "  int  Tjup[2] = {4,5};" ) )			
 		# end transformed data
 		# x <- c( x, paste0( "}" ) )
 		
@@ -163,14 +162,10 @@ run.dir="C:/users/martin/Desktop/temp"
 		x <- c( x, paste0( "parameters {" ) )
 		x <- c( x, paste0( "  vector[F] mu;" ) )
 		x <- c( x, paste0( "  cov_matrix[F] Sigma;" ) )
-		# if all persons have full T, then thetajp is completely free parameter structure
-		# if( thetajp.full <- all( Tj == T ) ){
-			
-			for( i in 1:length(uniqueTj) ){
-				x <- c( x, paste0( "  array[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"] real thetajpT",uniqueTj[i],"; // latent values of persons with ",uniqueTj[i]," time points" ) )
-			}
-		
-		# }
+		# latent values of persons with same number of time points
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real thetajpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"]; // latent values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		}
 		# free structures go in as parameters
 		if( length( wifres <- which( structure.type %in% "free" ) ) > 0 ){
 			x <- c( x, paste0( "  // free structures: ", paste( names( structure.type[wifres] ), collapse=", " ) ) )
@@ -188,22 +183,6 @@ run.dir="C:/users/martin/Desktop/temp"
 		
 		## transformed parameters
 		x <- c( x, paste0( "transformed parameters {" ) )
-		# x <- c( x, paste0( "  thetajp[1,1,5,3] <- 9999999;" ) )
-		# x <- c( x, paste0( "  thetajp[2,1,5,3] <- 9999999;" ) )
-		# if not all persons have full T, then missing time points in thetajp need to be fixed
-		# if( !thetajp.full ){
-			# x <- c( x, paste0( "  array[F,1,N,T] real thetajp; // latent values of persons per time point" ) )
-			# x <- c( x, paste0( "  // complete missing time points set to fixed number" ) )
-			# for( j in 1:N ){
-				# if( T - Tj[j] > 0 ){
-					# for( p in (Tj[j]+1):T ){
-						# for( f in 1: F ){
-							# x <- c( x, paste0( "  thetajp[",f,",1,",j,",",p,"] <- NA;" ) )
-						# }
-					# }
-				# }
-			# }
-		# }
 		
 		# mixed structures go in as transformed parameters
 		if( length( wimis ) > 0 ){
@@ -222,29 +201,23 @@ run.dir="C:/users/martin/Desktop/temp"
 		
 		## model
 		x <- c( x, paste0( "model {" ) )
-		x <- c( x, paste0( "  // ####################################" ) )
+		x <- c( x, paste0( "  // ##### loops over person groups with same number of time points T #########################################" ) )
 		for( i in 1:length(uniqueTj) ){
-			x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){" ) )
-			x <- c( x, paste0( "    for (p in 1:Tj[j]){" ) )
-			x <- c( x, paste0( "      //  " ) )
+			x <- c( x, paste0( "  // loop over time points of persons with T=",uniqueTj[i] ) )
+			x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
+			x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[Tjn]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
+			x <- c( x, paste0( "      // measurement model, Eq. 18/19 " ) )
+			x <- c( x, paste0( "      to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal( Delta*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),Sigmaeps);" ) )
+			x <- c( x, paste0( "      // time series " ) )
 			x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal(mu,Sigma);" ) )
 			x <- c( x, paste0( "    }" ) )
 			x <- c( x, paste0( "  }" ) )
 		}
-		x <- c( x, paste0( "  // ##### measurement model #########################################" ) )
-		for( i in 1:length(uniqueTj) ){		
-			x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){" ) )
-			x <- c( x, paste0( "    for (p in 1:Tj[j]){" ) )
-			x <- c( x, paste0( "      // measurement model, Eq. 18/19 " ) )
-			x <- c( x, paste0( "      to_vector( yjp[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal( Delta*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),Sigmaeps);" ) )
-			x <- c( x, paste0( "    }" ) )
-			x <- c( x, paste0( "  }" ) )
-		}
 		# priors for parameters of mixed structures
-		if( length( parameters.of.mixed.structures ) > 0 ){		
-			x <- c( x, paste0( "  // ##### priors for parameters of mixed structures #################" ) )
-			eval( parse( text=paste0("x <- c( x, '  ",parameters.of.mixed.structures," ~ normal( 1, 0.25 );' )" ) ) )
-		}
+		# if( length( parameters.of.mixed.structures ) > 0 ){		
+			# x <- c( x, paste0( "  // ##### priors for parameters of mixed structures #################" ) )
+			# eval( parse( text=paste0("x <- c( x, '  ",parameters.of.mixed.structures," ~ normal( 1, 0.25 );' )" ) ) )
+		# }
 		# end model
 		x <- c( x, paste0( "}" ) )
 		
@@ -260,7 +233,9 @@ run.dir="C:/users/martin/Desktop/temp"
 		invisible( if( file.exists( rds.path ) ) file.remove( rds.path ) )
 
 		## data
-		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "Tunique"=Tunique, "Tj"=Tj, "yjp"=yjp,   "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum )
+		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum )
+		# yjpT
+		dat <- c( dat, yjpT )
 		# add fixed structures
 		if( length( wifis ) > 0 ){
 			for( st in names( structure.type[wifis] ) ){
