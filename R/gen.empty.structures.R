@@ -57,8 +57,12 @@ gen.empty.structures <- function( F=2, I=F, N=5, T=3, Tunique=T*10, env=NULL, ve
 		eval( parse( text = paste0( Ix1xNxT.names, " <- array( as.numeric(NA), dim=c(I,1,N,T) )" ) ) )		
 		
 		## F x F x N x T
-		FxFxNxT.names <- c( "Ajp","Astarjp","Qjp","Qstarjp","Sigmawjp" )
+		FxFxNxT.names <- c( "Ajp","Qjp","Sigmawjp" )
 		eval( parse( text = paste0( FxFxNxT.names, " <- array( as.numeric(NA), dim=c(F,F,N,T) )" ) ) )
+
+		## F x F x N x T-1
+		FxFxNxTmin1.names <- c( "Astarjp","Qstarjp" )
+		eval( parse( text = paste0( FxFxNxTmin1.names, " <- array( as.numeric(NA), dim=c(F,F,N,T-1) )" ) ) )
 
 		## F x F x Tunique
 		FxFxTunique.names <- c( "At","Qt" )
@@ -139,7 +143,7 @@ gen.empty.structures <- function( F=2, I=F, N=5, T=3, Tunique=T*10, env=NULL, ve
 		if( is.null( env ) ){
 			env <- new.env()
 		}
-		str.names <- c( FxF.names, IxF.names, IxI.names, Ix1.names, Fx1.names, Fx1xN.names, Fx1xNxT.names, Fx1xTunique.names, Ix1xNxT.names, FxFxNxT.names, FxFxTunique.names, F2x1xNxT.names, F2x1xTunique.names, FF12x1xNxT.names, FF12x1xTunique.names, F2xF2xNxT.names, NxT.names, NxTmin1.names, F2xF2.names, F2x1.names, FF12xFF12.names, FF12x1.names, N.names, IxF.names, special.names, "F", "I", "N", "T", "Tunique", "str.names" )
+		str.names <- c( FxF.names, IxF.names, IxI.names, Ix1.names, Fx1.names, Fx1xN.names, Fx1xNxT.names, Fx1xTunique.names, Ix1xNxT.names, FxFxNxT.names, FxFxNxTmin1.names, FxFxTunique.names, F2x1xNxT.names, F2x1xTunique.names, FF12x1xNxT.names, FF12x1xTunique.names, F2xF2xNxT.names, NxT.names, NxTmin1.names, F2xF2.names, F2x1.names, FF12xFF12.names, FF12x1.names, N.names, IxF.names, special.names, "F", "I", "N", "T", "Tunique", "str.names" )
 		for( i in 1:length( str.names ) ){
 			assign( str.names[i], eval( parse( text=str.names[i] ) ), envir = env, inherits = FALSE, immediate=TRUE )
 		}

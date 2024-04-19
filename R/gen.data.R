@@ -80,8 +80,8 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 
 		## gen design characteristics
 		# Tj
-		Tj <- as.integer( sample( as.character(min(2,T):T), N, replace = TRUE ) )
-		# Tj <- as.integer( sample( as.character(T), N, replace = TRUE ) )
+		# Tj <- as.integer( sample( as.character(min(2,T):T), N, replace = TRUE ) )
+		Tj <- as.integer( sample( as.character(T), N, replace = TRUE ) )
 		# deltajp
 		for( j in 1:N ){
 			for( p in 1:(Tj[j]-1) ){
@@ -106,6 +106,13 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 		if( ( Tuniquenew <- length( tunique ) ) <= Tunique ){
 			Tunique <- Tuniquenew
 		} else stop( "predefined Tunique is lower than empirical Tunique" )
+		# modify structures depending on Tunique
+		At <- At[,,1:Tunique,drop=FALSE]
+		Qt <- Qt[,,1:Tunique,drop=FALSE]
+		mut <- mut[,,1:Tunique,drop=FALSE]
+		epsmut <- epsmut[,,1:Tunique,drop=FALSE]
+		epsAt <- epsAt[,,1:Tunique,drop=FALSE]
+		epsQt <- epsQt[,,1:Tunique,drop=FALSE]
 		# indices of individual time points in tunique vector
 		ptuniquejp <- tjp
 		for ( r in 1:nrow(ptuniquejp) ){
