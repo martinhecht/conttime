@@ -206,6 +206,9 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 		# checks
 		# if( j==N & all(is.na(yjp[,1,N,])) ) browser()
 		
+		# add structures that should additionally be returned
+		str.names <- c( str.names, "tunique", "ptuniquejp" )
+		
 		env2 <- new.env()
 		for( i in 1:length( str.names ) ){
 			assign( str.names[i], eval( parse( text=str.names[i] ) ), envir = env2, inherits = FALSE, immediate=TRUE )

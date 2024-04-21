@@ -44,8 +44,8 @@ run.dir="C:/users/martin/Desktop/temp"
 		# put all relevant data and model parameter elements from data environment here
 		# names <- ls(envir=env)
 		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "deltajp", "yjp" )
-		model.parameters <- c( "Delta", "Sigmaeps" )
-		additional.structures <- c( "Astarjp", "Qstarjp", "Ajp", "Qjp", "At", "Qt", "mujp", "IF", "IF2" )
+		model.parameters <- c( "Delta", "Sigmaeps", "A0", "Achange", "SigmaepsA" )
+		additional.structures <- c( "Astarjp", "Qstarjp", "Ajp", "Qjp", "At", "Qt", "mujp", "IF", "IF2", "S1", "S2", "S3", "tunique", "ptuniquejp", "zerovecF2", "zerovecFF12" )
 		names <- c( data.structures, model.parameters, additional.structures )
 		for( i in 1:length( names ) ){
 			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=data.env)" ) ) )
@@ -57,6 +57,7 @@ run.dir="C:/users/martin/Desktop/temp"
 		yjp <- yjp[,,resort.ind,,drop=FALSE]
 		Tj <- Tj[resort.ind]
 		deltajp <- deltajp[resort.ind,,drop=FALSE]
+		ptuniquejp <- ptuniquejp[resort.ind,,drop=FALSE]
 		# temporary
 		mujp <- mujp[,,resort.ind,,drop=FALSE]
 		Ajp <- Ajp[,,resort.ind,,drop=FALSE]
@@ -79,6 +80,9 @@ run.dir="C:/users/martin/Desktop/temp"
 		names( yjpT ) <- paste0( "yjpT", uniqueTj )
 		deltajpT <- mapply( function( js, Tj ) deltajp[js,1:Tj,drop=FALSE], Tj.list, uniqueTj-1, SIMPLIFY=FALSE )
 		names( deltajpT ) <- paste0( "deltajpT", uniqueTj )
+		ptuniquejpT <- mapply( function( js, Tj ) ptuniquejp[js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
+		names( ptuniquejpT ) <- paste0( "ptuniquejpT", uniqueTj )
+
 
 		# !!! alles was noch als data reingeht muss resorted werden
 
@@ -106,6 +110,11 @@ run.dir="C:/users/martin/Desktop/temp"
 		Sigmaeps[] <- NA
 		Sigmaeps[ lower.tri( Sigmaeps ) ] <- 0
 		Sigmaeps[ upper.tri( Sigmaeps ) ] <- 0
+		A0[] <- NA
+		Achange[] <- NA
+		SigmaepsA[] <- 0
+		diag(SigmaepsA) <- NA
+
 
 		## determine structure type: free, fixed, mixed (free parameters and fixed values)
 		structure.type <- array( as.character(NA), dim=length(model.parameters) )
@@ -117,12 +126,12 @@ run.dir="C:/users/martin/Desktop/temp"
 			type <- NULL
 		}
 		# structure dimensions (symbolic)
-		structure.dim          <- c( "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps" ) #, "real Sigmawjp[F,F,N,T]", "real Qstarjp[F,F,N,T-1]", "real Astarjp[F,F,N,T-1]" ) # "cov_matrix[F] Sigmawjp[N,T]"
-		names( structure.dim ) <- c( "Delta"            , "Sigmaeps"               ) #, "Sigmawjp"              , "Qstarjp"                , "Astarjp"                 )
+		structure.dim          <- c( "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,F] A0", "matrix[F,F] Achange", "matrix[F*F,F*F] SigmaepsA"  )
+		names( structure.dim ) <- c( "Delta"            , "Sigmaeps"              , "A0"            , "Achange"            , "SigmaepsA"                  )
 		
 		# parameter labels for each mixed structure
-		par.lab.mixed.str          <- c( "lambda", "sigmaeps" ) #, "sigmawjp", "sigmaQjp" )
-		names( par.lab.mixed.str ) <- c( "Delta" , "Sigmaeps" ) #, "Sigmawjp", "Qstarjp"  )
+		par.lab.mixed.str          <- c( "lambda", "sigmaeps", "a0", "achange", "sigmaepsA" )
+		names( par.lab.mixed.str ) <- c( "Delta" , "Sigmaeps", "A0", "Achange", "SigmaepsA" )
 
 		# get parameters of mixed structures
 		parameters.of.mixed.structures <- character(0)
@@ -200,6 +209,7 @@ run.dir="C:/users/martin/Desktop/temp"
 		x <- c( x, paste0( "  int<lower=1> N;             // ",paste(N,collapse=',')," | number of persons" ) )
 		x <- c( x, paste0( "  int<lower=2> T;             // ",paste(T,collapse=',')," | number of maximum time points of persons" ) )
 		x <- c( x, paste0( "  int<lower=2> Tunique;       // ",paste(Tunique,collapse=',')," | number of all unique time points" ) )
+		x <- c( x, paste0( "  real tunique[Tunique];      // ",paste(tunique,collapse=',')," | all unique time points" ) )
 		x <- c( x, paste0( "  int<lower=2> ",ifelse(N>1,"Tj[N]","Tj"),";",ifelse(N>1,"","   "),"         // ",paste(Tj,collapse=',')," | number of individual time points" ) )
 		x <- c( x, paste0( "  int<lower=1> Tjn;           // ",paste(Tjn,collapse=',')," | number of different individual time points" ) )
 		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"Tjlow[Tjn]","Tjlow"),";",ifelse(Tjn>1,"","     "),"    // ",paste(Tjlow,collapse=',')," | index vector with lower limit of persons with same number of time points" ) )
@@ -208,6 +218,12 @@ run.dir="C:/users/martin/Desktop/temp"
 		x <- c( x, paste0( "  int<lower=0> ",ifelse(Tjn>1,"NperTcum[Tjn]","NperTcum"),";",ifelse(Tjn>1,"","     ")," // ",paste(NperTcum,collapse=',')," | shifted cumulated number of persons per T (starting from 0 for 1st time point)" ) )
 		x <- c( x, paste0( "  matrix[F,F] IF;             // identity matrix of size ", F ) )
 		x <- c( x, paste0( "  matrix[F*F,F*F] IF2;        // identity matrix of size ", F^2 ) )
+		x <- c( x, paste0( "  matrix[F*F,F*F] S1;         // selection matrix 1" ) )
+		x <- c( x, paste0( "  matrix[F*F,F*F] S2;         // selection matrix 2" ) )
+		x <- c( x, paste0( "  matrix[F*F,F*(F+1)/2] S3;   // selection matrix 3" ) )
+		x <- c( x, paste0( "  matrix[F*F,1] zerovecF2;    // zero column vector of size ", F^2 ) )
+		x <- c( x, paste0( "  matrix[F*(F+1)/2,1] zerovecFF12;  // zero column vector of size ", F*(F+1)/2 ) )
+
 		# observed values of persons with same number of time points
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  real yjpT",uniqueTj[i],"[I,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," "),"// observed values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
@@ -215,6 +231,10 @@ run.dir="C:/users/martin/Desktop/temp"
 		# time interval lengths of persons with same number of time points
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  real deltajpT",uniqueTj[i],"[NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i]-1,"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," "),"// time interval lengths of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		}		
+		# indices of time points of persons in tunique vector
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real ptuniquejpT",uniqueTj[i],"[NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," "),"// indices of time points in tunique vector of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
 		}		
 		# temporary, mujpTX
 		for( i in 1:length(uniqueTj) ){
@@ -255,7 +275,7 @@ run.dir="C:/users/martin/Desktop/temp"
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  real ",c('AhashjpT'),uniqueTj[i],"[F*F,F*F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // Ahash matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
 		}
-
+		# Astarjp, Qstarjp, Ahashjp, Sigmawjp
 		x <- c( x, paste0( "  // ##### loops over person groups with same number of time points T #########################################" ) )
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  // #",i,"# loop over time points of persons with T=",uniqueTj[i] ) )		
@@ -326,7 +346,8 @@ run.dir="C:/users/martin/Desktop/temp"
 		if( length( wifres <- which( structure.type %in% "free" ) ) > 0 ){
 			x <- c( x, paste0( "  // free structures: ", paste( names( structure.type[wifres] ), collapse=", " ) ) )
 			for( st in names( structure.type[wifres] ) ){
-				eval( parse( text=paste0( "x <- c( x, paste0( '  ",structure.dim[st]," ",st,";' ) )" ) ) )
+				# eval( parse( text=paste0( "x <- c( x, paste0( '  ",structure.dim[st]," ",st,";' ) )" ) ) )
+				eval( parse( text=paste0( "x <- c( x, paste0( '  ",structure.dim[st],";' ) )" ) ) )
 			}
 		}		
 		# parameters of mixed structures
@@ -334,6 +355,9 @@ run.dir="C:/users/martin/Desktop/temp"
 			x <- c( x, paste0( "  // parameters of mixed structures" ) )
 			eval( parse( text=paste0("x <- c( x, '  real ",parameters.of.mixed.structures,";' )" ) ) )
 		}
+		# epsAt
+		x <- c( x, paste0( "  // epsAt" ) )
+		x <- c( x, paste0( "  real epsAt[F*F,1,Tunique];" ) )
 		# end parameters
 		x <- c( x, paste0( "}" ) )
 		
@@ -351,6 +375,20 @@ run.dir="C:/users/martin/Desktop/temp"
 				}
 			}
 		}
+		# At, Qt
+		x <- c( x, paste0( "  // time-varying drift/diffusion matrices" ) )
+		x <- c( x, paste0( "  real At[F,F,Tunique]; // time-varying drift matrices" ) )
+		x <- c( x, paste0( "  real Qt[F,F,Tunique]; // time-varying diffusion matrices" ) )
+		x <- c( x, paste0( "  for( p in 1:Tunique ){" ) )
+	    x <- c( x, paste0( "    for (i in 1:F){" ) )
+	    x <- c( x, paste0( "      for (k in 1:F){" ) )
+		x <- c( x, paste0( "        // Eq. 2" ) )
+		x <- c( x, paste0( "        At[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( A0 + Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( A0 .* exp( -( Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
+		x <- c( x, paste0( "      }" ) )
+		x <- c( x, paste0( "    }" ) )
+		x <- c( x, paste0( "  }" ) )
+	
+		
 		# end transformed parameters
 		x <- c( x, paste0( "}" ) )
 		
@@ -374,6 +412,9 @@ run.dir="C:/users/martin/Desktop/temp"
 			x <- c( x, paste0( "    }" ) )
 			x <- c( x, paste0( "  }" ) )
 		}
+		x <- c( x, paste0( "  for( p in 1:Tunique ){" ) )
+		x <- c( x, paste0( "    to_vector( epsAt[,1,p] ) ~ multi_normal( to_vector(zerovecF2), SigmaepsA );" ) )
+		x <- c( x, paste0( "  }" ) )
 		# priors for parameters of mixed structures
 		# if( length( parameters.of.mixed.structures ) > 0 ){		
 			# x <- c( x, paste0( "  // ##### priors for parameters of mixed structures #################" ) )
@@ -395,11 +436,11 @@ run.dir="C:/users/martin/Desktop/temp"
 
 		## data
 		# O <- M <- 2
-		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum, "IF"=IF, "IF2"=IF2 ) # , "O"=O,"M"=O,"A"=matrix(1,O,O),"B"=matrix(1,M,M)
+		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum, "IF"=IF, "IF2"=IF2, "S1"=S1, "S2"=S2, "S3"=S3, "tunique"=tunique, "zerovecF2"=zerovecF2, "zerovecFF12"=zerovecFF12 ) # , "O"=O,"M"=O,"A"=matrix(1,O,O),"B"=matrix(1,M,M)
 		# temporary
-		dat <- c( dat, list( "At"=At, "Qt"=Qt ) ) # "Ajp"=Ajp, "Qjp"=Qjp, "Sigmawjp"=Sigmawjp, "Astarjp"=Astarjp, "Qstarjp"=Qstarjp, "mujp"=mujp
+		# dat <- c( dat, list( "At"=At, "Qt"=Qt ) ) # "Ajp"=Ajp, "Qjp"=Qjp, "Sigmawjp"=Sigmawjp, "Astarjp"=Astarjp, "Qstarjp"=Qstarjp, "mujp"=mujp
 		# yjpT, deltajpT, TEMP mujpT AjpT QjpT
-		dat <- c( dat, yjpT, deltajpT, mujpT, AjpT, QjpT )
+		dat <- c( dat, yjpT, deltajpT, mujpT, AjpT, QjpT, ptuniquejpT )
 		# add fixed structures
 		if( length( wifis ) > 0 ){
 			for( st in names( structure.type[wifis] ) ){

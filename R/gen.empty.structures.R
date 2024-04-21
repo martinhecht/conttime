@@ -9,6 +9,9 @@
 #' @param
 #' @return
 
+# TODO
+# add tunique, ptuniquejp
+
 ## Function definition
 gen.empty.structures <- function( F=2, I=F, N=5, T=3, Tunique=T*10, env=NULL, verbose=FALSE ){
 		
