@@ -80,8 +80,8 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 
 		## gen design characteristics
 		# Tj
-		# Tj <- as.integer( sample( as.character(min(2,T):T), N, replace = TRUE ) )
-		Tj <- as.integer( sample( as.character(T), N, replace = TRUE ) )
+		Tj <- as.integer( sample( as.character(min(2,T):T), N, replace = TRUE ) )
+		# Tj <- as.integer( sample( as.character(T), N, replace = TRUE ) )
 		# deltajp
 		for( j in 1:N ){
 			for( p in 1:(Tj[j]-1) ){

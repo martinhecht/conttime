@@ -42,9 +42,9 @@ run.dir="C:/users/martin/Desktop/temp"
 		}
 		# put all relevant data and model parameter elements from data environment here
 		# names <- ls(envir=env)
-		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "yjp" )
+		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "deltajp", "yjp" )
 		model.parameters <- c( "Delta", "Sigmaeps" )
-		additional.structures <- c( "Astarjp", "Qstarjp", "Ajp", "Qjp", "At", "Qt", "mujp", "IF" )
+		additional.structures <- c( "Astarjp", "Qstarjp", "Ajp", "Qjp", "At", "Qt", "mujp", "IF", "IF2" )
 		names <- c( data.structures, model.parameters, additional.structures )
 		for( i in 1:length( names ) ){
 			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=data.env)" ) ) )
@@ -55,6 +55,11 @@ run.dir="C:/users/martin/Desktop/temp"
 		resort.ind <- do.call( "c", sapply( unique( sort( Tj ) ), function( T ) which( Tj %in% T ), simplify=FALSE ) )
 		yjp <- yjp[,,resort.ind,,drop=FALSE]
 		Tj <- Tj[resort.ind]
+		deltajp <- deltajp[resort.ind,,drop=FALSE]
+		# temporary
+		mujp <- mujp[,,resort.ind,,drop=FALSE]
+		Ajp <- Ajp[,,resort.ind,,drop=FALSE]
+		Qjp <- Qjp[,,resort.ind,,drop=FALSE]
 		# unique Tj
 		uniqueTj <- unique( Tj ) # Tj should/needs to be sorted at this point
 		# prepare indices vectors (lower/upper range) for persons with same number of time points
@@ -68,15 +73,21 @@ run.dir="C:/users/martin/Desktop/temp"
 		# shifted cumulated number of persons per T (starting from 0 for 1st time point)
 		NperTcum <- c( 0, cumsum( NperT )[Tjn-1] )
 
-		# split data into a list with person groups with same number of time points and delete NAs due to missing time points
+		# split structure into a list with person groups with same number of time points and delete NAs due to missing time points
 		yjpT <- mapply( function( js, Tj ) yjp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
 		names( yjpT ) <- paste0( "yjpT", uniqueTj )
+		deltajpT <- mapply( function( js, Tj ) deltajp[js,1:Tj,drop=FALSE], Tj.list, uniqueTj-1, SIMPLIFY=FALSE )
+		names( deltajpT ) <- paste0( "deltajpT", uniqueTj )
 
 		# !!! alles was noch als data reingeht muss resorted werden
 
-		# delete NAs due to missing time points in additional structures
-		# Qstarjp2 <- mapply( function( js, Tj ) Qstarjp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj-1, SIMPLIFY=FALSE )
-
+		# temporary
+		mujpT <- mapply( function( js, Tj ) mujp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
+		names( mujpT ) <- paste0( "mujpT", uniqueTj )
+		AjpT <- mapply( function( js, Tj ) Ajp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
+		names( AjpT ) <- paste0( "AjpT", uniqueTj )
+		QjpT <- mapply( function( js, Tj ) Qjp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
+		names( QjpT ) <- paste0( "QjpT", uniqueTj )
 
 		# Tests
 		### Delta[2,1] <- "lambda21"
@@ -133,6 +144,53 @@ run.dir="C:/users/martin/Desktop/temp"
 
 		### stan syntax
 		x <- paste0( "// ", date() )
+
+		## functions
+		x <- c( x, paste0( "functions {" ) )
+	    x <- c( x, paste0( "  vector flatten_matrix_rowwise(matrix mat) {" ) )
+	    x <- c( x, paste0( "    int rows = rows(mat); // Get the number of rows in the matrix" ) )
+	    x <- c( x, paste0( "    int cols = cols(mat); // Get the number of columns in the matrix" ) )
+	    x <- c( x, paste0( "    vector[rows * cols] vec; // Create a vector to hold all elements" ) )
+	    x <- c( x, paste0( "    int pos = 1;" ) )
+	    x <- c( x, paste0( "    for (i in 1:rows) {" ) )
+	    x <- c( x, paste0( "        for (j in 1:cols) {" ) )
+	    x <- c( x, paste0( "            vec[pos] = mat[i, j]; // Assign matrix elements to vector" ) )
+	    x <- c( x, paste0( "            pos = pos + 1; // Increment position index" ) )
+	    x <- c( x, paste0( "        }" ) )
+	    x <- c( x, paste0( "    }" ) )
+	    x <- c( x, paste0( "    return vec;" ) )
+	    x <- c( x, paste0( "  }" ) )
+        x <- c( x, paste0( "  matrix unflatten_vector_to_matrix(vector vec, int rows, int cols) {" ) )
+        x <- c( x, paste0( "      matrix[rows, cols] mat; // Create a matrix of specified dimensions" ) )
+        x <- c( x, paste0( "      int pos = 1;" ) )
+        x <- c( x, paste0( "      for (i in 1:rows) {" ) )
+        x <- c( x, paste0( "          for (j in 1:cols) {" ) )
+        x <- c( x, paste0( "              mat[i, j] = vec[pos]; // Assign vector elements back to matrix" ) )
+        x <- c( x, paste0( "              pos = pos + 1; // Increment position index" ) )
+        x <- c( x, paste0( "          }" ) )
+        x <- c( x, paste0( "      }" ) )
+        x <- c( x, paste0( "      return mat;" ) )
+        x <- c( x, paste0( "  }" ) )
+        x <- c( x, paste0( "  matrix kronecker_product(matrix X, matrix Y) {" ) )
+        x <- c( x, paste0( "      int a_rows = rows(X);" ) )
+        x <- c( x, paste0( "      int a_cols = cols(X);" ) )
+        x <- c( x, paste0( "      int b_rows = rows(Y);" ) )
+        x <- c( x, paste0( "      int b_cols = cols(Y);" ) )
+        x <- c( x, paste0( "      matrix[a_rows * b_rows, a_cols * b_cols] result;" ) )
+        x <- c( x, paste0( "      for (i in 1:a_rows) {" ) )
+        x <- c( x, paste0( "          for (j in 1:a_cols) {" ) )
+        x <- c( x, paste0( "              for (k in 1:b_rows) {" ) )
+        x <- c( x, paste0( "                  for (l in 1:b_cols) {" ) )
+        x <- c( x, paste0( "                      result[(i - 1) * b_rows + k, (j - 1) * b_cols + l] = X[i, j] * Y[k, l];" ) )
+        x <- c( x, paste0( "                  }" ) )
+        x <- c( x, paste0( "              }" ) )
+        x <- c( x, paste0( "          }" ) )
+        x <- c( x, paste0( "      }" ) )
+        x <- c( x, paste0( "      return result;" ) )
+        x <- c( x, paste0( "  }" ) )
+
+		# end functions
+		x <- c( x, paste0( "}" ) )
 		
 		## data
 		x <- c( x, paste0( "data {" ) )
@@ -148,9 +206,22 @@ run.dir="C:/users/martin/Desktop/temp"
 		x <- c( x, paste0( "  int<lower=1> ",ifelse(Tjn>1,"NperT[Tjn]","NperT"),";",ifelse(Tjn>1,"","     "),"    // ",paste(NperT,collapse=',')," | number of persons per T" ) )
 		x <- c( x, paste0( "  int<lower=0> ",ifelse(Tjn>1,"NperTcum[Tjn]","NperTcum"),";",ifelse(Tjn>1,"","     ")," // ",paste(NperTcum,collapse=',')," | shifted cumulated number of persons per T (starting from 0 for 1st time point)" ) )
 		x <- c( x, paste0( "  matrix[F,F] IF;             // identity matrix of size ", F ) )
+		x <- c( x, paste0( "  matrix[F*F,F*F] IF2;        // identity matrix of size ", F^2 ) )
 		# observed values of persons with same number of time points
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  real yjpT",uniqueTj[i],"[I,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," "),"// observed values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		}
+		# time interval lengths of persons with same number of time points
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real deltajpT",uniqueTj[i],"[NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i]-1,"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," "),"// time interval lengths of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		}		
+		# temporary, mujpTX
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real mujpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," ") ) )
+		}
+		# temporary, Ajp, Qjp
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real ",c('AjpT','QjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," ") ) )
 		}
 		# fixed structures go in as data
 		if( length( wifis <- which( structure.type %in% "fixed" ) ) > 0 ){
@@ -159,22 +230,58 @@ run.dir="C:/users/martin/Desktop/temp"
 			}
 		}
 		# temporary
-		x <- c( x, paste0( "  real Sigmawjp[F,F,N,T];" ) )
-		x <- c( x, paste0( "  real Qstarjp[F,F,N,T-1];" ) )
-		x <- c( x, paste0( "  real Astarjp[F,F,N,T-1];" ) )
-		x <- c( x, paste0( "  real mujp[F,1,N,T];" ) )
+		# x <- c( x, paste0( "  real Sigmawjp[F,F,N,T];" ) )
+		# x <- c( x, paste0( "  real Qstarjp[F,F,N,T-1];" ) )
+		# x <- c( x, paste0( "  real Astarjp[F,F,N,T-1];" ) )
+		# x <- c( x, paste0( "  real mujp[F,1,N,T];" ) )
+		# x <- c( x, paste0( "  real Ajp[F,F,N,T];" ) )
+		# x <- c( x, paste0( "  real Qjp[F,F,N,T];" ) )
+		# x <- c( x, paste0( "int<lower=1> O;" ) )
+		# x <- c( x, paste0( "int<lower=1> M;" ) )
+		# x <- c( x, paste0( "matrix[O, O] A;" ) )
+		# x <- c( x, paste0( "matrix[M, M] B;" ) )
+		
 		# end data
 		x <- c( x, paste0( "}" ) )
 
 		## transformed data
-		# x <- c( x, paste0( "transformed data {" ) )
+		x <- c( x, paste0( "transformed data {" ) )
+		# Astarjp, Qstarjp, Sigmawjp
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real ",c('AstarjpT','QstarjpT','SigmawjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		}
+		# Ahash
+		for( i in 1:length(uniqueTj) ){
+			x <- c( x, paste0( "  real ",c('AhashjpT'),uniqueTj[i],"[F*F,F*F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // Ahash matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		}
+		
+		x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )		
+		x <- c( x, paste0( "    for (p in 1:(",ifelse(N>1,"Tj[Tjn]","Tj"),"-1)){ // range: 1:",uniqueTj[i]-1 ) )
+		x <- c( x, paste0( "      for (i in 1:F){" ) )
+		x <- c( x, paste0( "        for (k in 1:F){" ) )
+		x <- c( x, paste0( "          // Astarjp, Qstarjp, Eq. 12/13" ) )
+		x <- c( x, paste0( "          AstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = matrix_exp(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])[i,k];" ) )
+		x <- c( x, paste0( "          QstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix( -( matrix_exp(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) - IF2 ) * flatten_matrix_rowwise(to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
+		x <- c( x, paste0( "          SigmawjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix(-inverse(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
+		x <- c( x, paste0( "        }" ) )
+		x <- c( x, paste0( "      }" ) )
+		x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
+		x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )		
+		x <- c( x, paste0( "          // Ahashjp, Eq. 14" ) )		
+		x <- c( x, paste0( "          AhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])))[i,k];" ) )
+		x <- c( x, paste0( "        }" ) )
+		x <- c( x, paste0( "      }" ) )
+		x <- c( x, paste0( "    }" ) )
+		x <- c( x, paste0( "  }" ) )
 		# x <- c( x, paste0( "  int Tjlow[2] = {1,5};" ) )			
+		# x <- c( x, paste0( "   matrix[O*M, O*M] C;  ") )		
+		# x <- c( x, paste0( "   C = kronecker_product(A, B);  ") )		
+		
 		# end transformed data
-		# x <- c( x, paste0( "}" ) )
+		x <- c( x, paste0( "}" ) )
 		
 		## parameters
 		x <- c( x, paste0( "parameters {" ) )
-
 		# latent values of persons with same number of time points
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  real thetajpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"]; // latent values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
@@ -217,18 +324,18 @@ run.dir="C:/users/martin/Desktop/temp"
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  // loop over time points of persons with T=",uniqueTj[i] ) )
 			x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
+			x <- c( x, paste0( "    // first time point, Eq. 17" ) )
+			x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal(to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
+			x <- c( x, paste0( "    // loop beginning at second time points" ) )
+			x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[Tjn]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
+			x <- c( x, paste0( "      // time series, Eq. 15/16 " ) )
+			x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])+(IF - to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]))*to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
+			x <- c( x, paste0( "    }" ) )
 			x <- c( x, paste0( "    // loop over all time points" ) )
 			x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[Tjn]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
 			x <- c( x, paste0( "      // measurement model, Eq. 18/19 " ) )
 			x <- c( x, paste0( "      to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal( Delta*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),Sigmaeps);" ) )
 			x <- c( x, paste0( "    }" ) )
-			x <- c( x, paste0( "    // loop beginning at second time points" ) )
-			x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[Tjn]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
-			x <- c( x, paste0( "      // time series, Eq. 15/16 " ) )
-			x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal(to_matrix(Astarjp[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])+(IF - to_matrix(Astarjp[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]))*to_vector(mujp[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),to_matrix(Qstarjp[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
-			x <- c( x, paste0( "    }" ) )
-			x <- c( x, paste0( "    // first time point, Eq. 17" ) )
-			x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal(to_vector(mujp[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),to_matrix(Sigmawjp[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
 			x <- c( x, paste0( "  }" ) )
 		}
 		# priors for parameters of mixed structures
@@ -251,15 +358,16 @@ run.dir="C:/users/martin/Desktop/temp"
 		invisible( if( file.exists( rds.path ) ) file.remove( rds.path ) )
 
 		## data
-		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum, "IF"=IF )
+		# O <- M <- 2
+		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum, "IF"=IF, "IF2"=IF2 ) # , "O"=O,"M"=O,"A"=matrix(1,O,O),"B"=matrix(1,M,M)
 		# temporary
-		dat <- c( dat, list( "Sigmawjp"=Sigmawjp, "Astarjp"=Astarjp, "Qstarjp"=Qstarjp, "Ajp"=Ajp, "Qjp"=Qjp, "At"=At, "Qt"=Qt, "mujp"=mujp ) )
-		# yjpT
-		dat <- c( dat, yjpT )
+		dat <- c( dat, list( "At"=At, "Qt"=Qt ) ) # "Ajp"=Ajp, "Qjp"=Qjp, "Sigmawjp"=Sigmawjp, "Astarjp"=Astarjp, "Qstarjp"=Qstarjp, "mujp"=mujp
+		# yjpT, deltajpT, TEMP mujpT AjpT QjpT
+		dat <- c( dat, yjpT, deltajpT, mujpT, AjpT, QjpT )
 		# add fixed structures
 		if( length( wifis ) > 0 ){
 			for( st in names( structure.type[wifis] ) ){
-				eval( parse( text=paste0( "dat$", st, " <- ", st ) ) ) 
+				eval( parse( text=paste0( "dat$", st, " <- ", st ) ) )
 			}
 		}
 		
