@@ -43,9 +43,10 @@ run.dir="C:/users/martin/Desktop/temp"
 		}
 		# put all relevant data and model parameter elements from data environment here
 		# names <- ls(envir=env)
-		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "deltajp", "yjp" )
-		model.parameters <- c( "Delta", "Sigmaeps", "A0", "Achange", "SigmaepsA" )
-		additional.structures <- c( "Astarjp", "Qstarjp", "Ajp", "Qjp", "At", "Qt", "mujp", "IF", "IF2", "S1", "S2", "S3", "tunique", "ptuniquejp", "zerovecF2", "zerovecFF12" )
+		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "deltajp", "yjp", "tunique", "ptuniquejp" )
+		model.parameters <- c( "Delta", "Sigmaeps", "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ" )
+		additional.structures <- c( "mujp", "IF", "IF2", "S1", "S2", "S3", "zerovecF2", "zerovecFF12" )
+		# "Astarjp", "Qstarjp", "Ajp", "Qjp", "At", "Qt",
 		names <- c( data.structures, model.parameters, additional.structures )
 		for( i in 1:length( names ) ){
 			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=data.env)" ) ) )
@@ -89,10 +90,10 @@ run.dir="C:/users/martin/Desktop/temp"
 		# temporary
 		mujpT <- mapply( function( js, Tj ) mujp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
 		names( mujpT ) <- paste0( "mujpT", uniqueTj )
-		AjpT <- mapply( function( js, Tj ) Ajp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
-		names( AjpT ) <- paste0( "AjpT", uniqueTj )
-		QjpT <- mapply( function( js, Tj ) Qjp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
-		names( QjpT ) <- paste0( "QjpT", uniqueTj )
+		# AjpT <- mapply( function( js, Tj ) Ajp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
+		# names( AjpT ) <- paste0( "AjpT", uniqueTj )
+		# QjpT <- mapply( function( js, Tj ) Qjp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
+		# names( QjpT ) <- paste0( "QjpT", uniqueTj )
 
 		# Tests
 		### Delta[2,1] <- "lambda21"
@@ -114,7 +115,10 @@ run.dir="C:/users/martin/Desktop/temp"
 		Achange[] <- NA
 		SigmaepsA[] <- 0
 		diag(SigmaepsA) <- NA
-
+		Q0[] <- NA
+		Qchange[] <- NA
+		SigmaepsQ[] <- 0
+		diag(SigmaepsQ) <- NA
 
 		## determine structure type: free, fixed, mixed (free parameters and fixed values)
 		structure.type <- array( as.character(NA), dim=length(model.parameters) )
@@ -126,12 +130,12 @@ run.dir="C:/users/martin/Desktop/temp"
 			type <- NULL
 		}
 		# structure dimensions (symbolic)
-		structure.dim          <- c( "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,F] A0", "matrix[F,F] Achange", "matrix[F*F,F*F] SigmaepsA"  )
-		names( structure.dim ) <- c( "Delta"            , "Sigmaeps"              , "A0"            , "Achange"            , "SigmaepsA"                  )
+		structure.dim          <- c( "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,F] A0", "matrix[F,F] Achange", "matrix[F*F,F*F] SigmaepsA", "cov_matrix[F] Q0", "cov_matrix[F] Qchange", "matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ"  )
+		names( structure.dim ) <- c( "Delta"            , "Sigmaeps"              , "A0"            , "Achange"            , "SigmaepsA"                , "Q0"              , "Qchange"              , "SigmaepsQ"                              )
 		
 		# parameter labels for each mixed structure
-		par.lab.mixed.str          <- c( "lambda", "sigmaeps", "a0", "achange", "sigmaepsA" )
-		names( par.lab.mixed.str ) <- c( "Delta" , "Sigmaeps", "A0", "Achange", "SigmaepsA" )
+		par.lab.mixed.str          <- c( "lambda", "sigmaeps", "a0", "achange", "sigmaepsA", "q0", "qchange", "sigmaepsQ" )
+		names( par.lab.mixed.str ) <- c( "Delta" , "Sigmaeps", "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ" )
 
 		# get parameters of mixed structures
 		parameters.of.mixed.structures <- character(0)
@@ -355,9 +359,11 @@ run.dir="C:/users/martin/Desktop/temp"
 			x <- c( x, paste0( "  // parameters of mixed structures" ) )
 			eval( parse( text=paste0("x <- c( x, '  real ",parameters.of.mixed.structures,";' )" ) ) )
 		}
-		# epsAt
-		x <- c( x, paste0( "  // epsAt" ) )
+		# epsAt, epsQt
+		x <- c( x, paste0( "  // epsAt, epsQt" ) )
 		x <- c( x, paste0( "  real epsAt[F*F,1,Tunique];" ) )
+		x <- c( x, paste0( "  real epsQt[F*(F+1)/2,1,Tunique];" ) )
+
 		# end parameters
 		x <- c( x, paste0( "}" ) )
 		
@@ -378,17 +384,22 @@ run.dir="C:/users/martin/Desktop/temp"
 		# At, Qt
 		x <- c( x, paste0( "  // time-varying drift/diffusion matrices" ) )
 		x <- c( x, paste0( "  real At[F,F,Tunique]; // time-varying drift matrices" ) )
+		# x <- c( x, paste0( "  real Qt[F*(F+1)/2,F*(F+1)/2,Tunique]; // time-varying diffusion matrices" ) )
 		x <- c( x, paste0( "  real Qt[F,F,Tunique]; // time-varying diffusion matrices" ) )
 		x <- c( x, paste0( "  for( p in 1:Tunique ){" ) )
 	    x <- c( x, paste0( "    for (i in 1:F){" ) )
 	    x <- c( x, paste0( "      for (k in 1:F){" ) )
 		x <- c( x, paste0( "        // Eq. 2" ) )
 		x <- c( x, paste0( "        At[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( A0 + Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( A0 .* exp( -( Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
+		x <- c( x, paste0( "        // Eq. 3" ) )
+		x <- c( x, paste0( "        Qt[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( Q0 + Qchange*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( Q0 .* exp( -( Qchange*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
 		x <- c( x, paste0( "      }" ) )
 		x <- c( x, paste0( "    }" ) )
+	    # x <- c( x, paste0( "    for (i in 1:(F*(F+1)/2)){" ) )
+	    # x <- c( x, paste0( "      for (k in 1:(F*(F+1)/2)){" ) )
+		# x <- c( x, paste0( "      }" ) )
+		# x <- c( x, paste0( "    }" ) )
 		x <- c( x, paste0( "  }" ) )
-	
-		
 		# end transformed parameters
 		x <- c( x, paste0( "}" ) )
 		
@@ -412,8 +423,10 @@ run.dir="C:/users/martin/Desktop/temp"
 			x <- c( x, paste0( "    }" ) )
 			x <- c( x, paste0( "  }" ) )
 		}
+		x <- c( x, paste0( "  // epsAt, Eq. 4; epsQt, Eq. 5" ) )
 		x <- c( x, paste0( "  for( p in 1:Tunique ){" ) )
-		x <- c( x, paste0( "    to_vector( epsAt[,1,p] ) ~ multi_normal( to_vector(zerovecF2), SigmaepsA );" ) )
+		x <- c( x, paste0( "    to_vector( epsAt[,1,p] ) ~ multi_normal( to_vector(zerovecF2)  , SigmaepsA );" ) )
+		x <- c( x, paste0( "    to_vector( epsQt[,1,p] ) ~ multi_normal( to_vector(zerovecFF12), SigmaepsQ );" ) )
 		x <- c( x, paste0( "  }" ) )
 		# priors for parameters of mixed structures
 		# if( length( parameters.of.mixed.structures ) > 0 ){		

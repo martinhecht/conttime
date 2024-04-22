@@ -68,8 +68,12 @@ gen.empty.structures <- function( F=2, I=F, N=5, T=3, Tunique=T*10, env=NULL, ve
 		eval( parse( text = paste0( FxFxNxTmin1.names, " <- array( as.numeric(NA), dim=c(F,F,N,T-1) )" ) ) )
 
 		## F x F x Tunique
-		FxFxTunique.names <- c( "At","Qt" )
+		FxFxTunique.names <- c( "At", "Qt" )
 		eval( parse( text = paste0( FxFxTunique.names, " <- array( as.numeric(NA), dim=c(F,F,Tunique) )" ) ) )
+
+		## F*(F+1)/2 x F*(F+1)/2 x Tunique
+		# FF12xFF12xTunique.names <- c( "" )
+		# eval( parse( text = paste0( FF12xFF12xTunique.names, " <- array( as.numeric(NA), dim=c(F*(F+1)/2,F*(F+1)/2,Tunique) )" ) ) )
 
 		## F^2 x 1 x N x T
 		# F2x1xNxT.names <- c( "epsAjp" )

@@ -1,8 +1,8 @@
 Package: conttime
 Type: Package
 Title: What the Package Does in One 'Title Case' Line
-Version: 0.0.12
-Date: 2024-04-22
+Version: 0.0.13
+Date: 2024-04-23
 Author: Your Name
 Maintainer: Your Name <your@email.com>
 Description: One paragraph description of what the package does as one or more full sentences.
