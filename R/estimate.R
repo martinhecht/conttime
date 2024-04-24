@@ -37,6 +37,7 @@ run.dir="C:/users/martin/Desktop/temp"
 		# if no data provided, get empty structures and gen data
 		if( is.null( data.env ) ) {
 			str.env <- gen.empty.structures(I=4, N=5, T=3)
+			# str.env <- gen.empty.structures(I=4, N=100, T=20)
 			# data.env <- gen.data( env=str.env, seed=12345 ) # 2 3 3 3 3
 			data.env <- gen.data( env=str.env, seed=1234567 ) # 2 2 3 3 3
 			# data.env <- gen.data( env=str.env )
@@ -44,8 +45,8 @@ run.dir="C:/users/martin/Desktop/temp"
 		# put all relevant data and model parameter elements from data environment here
 		# names <- ls(envir=env)
 		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "deltajp", "yjp", "tunique", "ptuniquejp" )
-		model.parameters <- c(  ) # "Q0", "Qchange", "SigmaepsA", "SigmaepsQ", "Sigmaeps", "A0", "Achange", "Delta"
-		additional.structures <- c( "mujp", "IF", "IF2", "S1", "S2", "S3", "zerovecF2", "zerovecFF12", "Q0", "Qchange", "SigmaepsA", "SigmaepsQ", "Sigmaeps", "A0", "Achange", "Delta" )
+		model.parameters <- c( "A0", "Achange", "Q0", "Qchange", "SigmaepsA", "SigmaepsQ", "Sigmaeps", "Delta" )
+		additional.structures <- c( "mujp", "IF", "IF2", "S1", "S2", "S3", "zerovecF2", "zerovecFF12", "Q0", "Qchange", "SigmaepsA", "SigmaepsQ", "Sigmaeps", "A0", "Achange", "Delta", "epsAt", "epsQt" )
 		# "Astarjp", "Qstarjp", "At", "Qt",
 		names <- c( data.structures, model.parameters, additional.structures )
 		for( i in 1:length( names ) ){
@@ -107,26 +108,26 @@ run.dir="C:/users/martin/Desktop/temp"
 		# Sigmawjp[1,1,1,1] <- NA
 		
 		# keep fixed model parameters from data generation for starting values
-		keep.fixed <- list( "Delta"=Delta, "Sigmaeps"=Sigmaeps, "A0"=A0, "Achange"=Achange, "SigmaepsA"=SigmaepsA, "SigmaepsQ"=SigmaepsQ ) # "Q0"=Q0, "Qchange"=Qchange
+		keep.fixed <- list( "Delta"=Delta, "Sigmaeps"=Sigmaeps, "A0"=A0, "Achange"=Achange, "SigmaepsA"=SigmaepsA, "SigmaepsQ"=SigmaepsQ, "Q0"=Q0, "Qchange"=Qchange )
 		
 		# Defaults
 		### TODO: ordentliche Defaults fuer Delta
-		# Delta[2,1] <- NA
-		# Delta[4,2] <- NA
-		# Sigmaeps[] <- NA
-		# Sigmaeps[ lower.tri( Sigmaeps ) ] <- 0
-		# Sigmaeps[ upper.tri( Sigmaeps ) ] <- 0
-		# A0[] <- NA
-		# Achange[] <- NA
-		# SigmaepsA[] <- 0
-		# diag(SigmaepsA) <- NA
-		### Q0[] <- NA
+		Delta[2,1] <- NA
+		Delta[4,2] <- NA
+		Sigmaeps[] <- NA
+		Sigmaeps[ lower.tri( Sigmaeps ) ] <- 0
+		Sigmaeps[ upper.tri( Sigmaeps ) ] <- 0
+		A0[] <- NA
+		Achange[] <- NA
+		SigmaepsA[] <- 0
+		diag(SigmaepsA) <- NA
+		Q0[] <- NA
 		### diag(Q0) <- NA
-		### Qchange[] <- NA
+		Qchange[] <- NA
 		# Q0 <- matrix( c("q011","q021","q021","q022" ), F, F )
 		# Qchange <- matrix( c("qchange11","qchange21","qchange21","qchange22" ), F, F )
-		# SigmaepsQ[] <- 0
-		# diag(SigmaepsQ) <- NA
+		SigmaepsQ[] <- 0
+		diag(SigmaepsQ) <- NA
 
 		# temporary, only for fixing as data
 		# diag(Q0) <- diag(Q0) + 10^-6
@@ -242,15 +243,15 @@ run.dir="C:/users/martin/Desktop/temp"
 
 		# temporary
 		# x <- c( x, paste0( "  cov_matrix[F] Q0;" ) )
-		x <- c( x, paste0( "  matrix[F,F] Q0;" ) )
+		# x <- c( x, paste0( "  matrix[F,F] Q0;" ) )
 		# x <- c( x, paste0( "  cov_matrix[F] Qchange;" ) )
-		x <- c( x, paste0( "  matrix[F,F] Qchange;" ) )
-		x <- c( x, paste0( "  matrix[I,I] Sigmaeps;" ) )
-		x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsA;" ) )
-		x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ;" ) )
-		x <- c( x, paste0( "  matrix[F,F] A0;" ) )
-		x <- c( x, paste0( "  matrix[F,F] Achange;" ) )
-		x <- c( x, paste0( "  matrix[I,F] Delta;" ) )
+		# x <- c( x, paste0( "  matrix[F,F] Qchange;" ) )
+		# x <- c( x, paste0( "  matrix[I,I] Sigmaeps;" ) )
+		# x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsA;" ) )
+		# x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ;" ) )
+		# x <- c( x, paste0( "  matrix[F,F] A0;" ) )
+		# x <- c( x, paste0( "  matrix[F,F] Achange;" ) )
+		# x <- c( x, paste0( "  matrix[I,F] Delta;" ) )
 
 
 
@@ -309,11 +310,11 @@ run.dir="C:/users/martin/Desktop/temp"
 		# x <- c( x, paste0( "   matrix[O*M, O*M] C;  ") )		
 		# x <- c( x, paste0( "   C = kronecker_product(A, B);  ") )		
 		# temporary
-		x <- c( x, paste0( "  matrix[F,F] Q0_pos_def = Q0 + 1e-6 * diag_matrix(rep_vector(1,F));" ) )
-		x <- c( x, paste0( "  matrix[F,F] Qchange_pos_def = Qchange + 1e-6 * diag_matrix(rep_vector(1,F));" ) )
-		x <- c( x, paste0( "  matrix[I,I] Sigmaeps_pos_def = Sigmaeps + 1e-6 * diag_matrix(rep_vector(1,I));" ) )
-		x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsA_pos_def = SigmaepsA + 1e-6 * diag_matrix(rep_vector(1,F*F));" ) )
-		x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ_pos_def = SigmaepsQ + 1e-6 * diag_matrix(rep_vector(1,F*(F+1)/2));" ) )
+		# x <- c( x, paste0( "  matrix[F,F] Q0_pos_def = Q0 + 1e-6 * diag_matrix(rep_vector(1,F));" ) )
+		# x <- c( x, paste0( "  matrix[F,F] Qchange_pos_def = Qchange + 1e-6 * diag_matrix(rep_vector(1,F));" ) )
+		# x <- c( x, paste0( "  matrix[I,I] Sigmaeps_pos_def = Sigmaeps + 1e-6 * diag_matrix(rep_vector(1,I));" ) )
+		# x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsA_pos_def = SigmaepsA + 1e-6 * diag_matrix(rep_vector(1,F*F));" ) )
+		# x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ_pos_def = SigmaepsQ + 1e-6 * diag_matrix(rep_vector(1,F*(F+1)/2));" ) )
 
 		
 		# end transformed data
@@ -361,7 +362,13 @@ run.dir="C:/users/martin/Desktop/temp"
 			}
 		}
 		# x <- c( x, paste0( "  matrix[F,F] Q0_pos_def = Q0 + 1e-6 * diag_matrix(rep_vector(1,F));" ) )
+		x <- c( x, paste0( "  // Cholesky decompositions" ) )
+		x <- c( x, paste0( "  matrix[F,F] Q0Chol = cholesky_decompose( Q0 );" ) )
 		# x <- c( x, paste0( "  matrix[F,F] Qchange_pos_def = Qchange + 1e-6 * diag_matrix(rep_vector(1,F));" ) )
+		x <- c( x, paste0( "  matrix[F,F] QchangeChol = cholesky_decompose( Qchange );" ) )
+		x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsAChol = cholesky_decompose( SigmaepsA );" ) )
+		x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQChol = cholesky_decompose( SigmaepsQ );" ) )
+		x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
 		# x <- c( x, paste0( "  matrix[I,I] Sigmaeps_pos_def = Sigmaeps + 1e-6 * diag_matrix(rep_vector(1,I));" ) )
 		# x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsA_pos_def = SigmaepsA + 1e-6 * diag_matrix(rep_vector(1,F*F));" ) )
 		# x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ_pos_def = SigmaepsQ + 1e-6 * diag_matrix(rep_vector(1,F*(F+1)/2));" ) )
@@ -376,7 +383,7 @@ run.dir="C:/users/martin/Desktop/temp"
 		x <- c( x, paste0( "        // Eq. 2" ) )
 		x <- c( x, paste0( "        At[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( A0 + Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( A0 .* exp( -( Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
 		x <- c( x, paste0( "        // Eq. 3" ) )
-		x <- c( x, paste0( "        Qt[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( Q0_pos_def + Qchange_pos_def*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( Q0_pos_def .* exp( -( Qchange_pos_def*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
+		x <- c( x, paste0( "        Qt[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( Q0Chol*Q0Chol' + (QchangeChol*QchangeChol')*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( (Q0Chol*Q0Chol') .* exp( -( (QchangeChol*QchangeChol')*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
 		x <- c( x, paste0( "      }" ) )
 		x <- c( x, paste0( "    }" ) )
                           # x <- c( x, paste0( "        print( At[,,p] );" ) )
@@ -417,7 +424,7 @@ run.dir="C:/users/martin/Desktop/temp"
 
 		# Astarjp, Qstarjp, Sigmawjp
 		for( i in 1:length(uniqueTj) ){
-			x <- c( x, paste0( "  real ",c('AstarjpT','QstarjpT','SigmawjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			x <- c( x, paste0( "  real ",c('AstarjpT','QstarjpT','QstarjpCholT','SigmawjpT','SigmawjpCholT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
 		}
 		# Ahash
 		for( i in 1:length(uniqueTj) ){
@@ -451,6 +458,12 @@ run.dir="C:/users/martin/Desktop/temp"
 		    # x <- c( x, paste0( "          SigmawjpT",uniqueTj[i],"[k,i,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = SigmawjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p];" ) )
 		    x <- c( x, paste0( "        }" ) )
 		    x <- c( x, paste0( "      }" ) )
+		    x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
+		    x <- c( x, paste0( "      for (i in 1:F){" ) )
+			x <- c( x, paste0( "        for (k in 1:F){" ) )
+		    x <- c( x, paste0( "          SigmawjpCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = cholesky_decompose( to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) )[i,k];" ) )
+		    x <- c( x, paste0( "        }" ) )
+		    x <- c( x, paste0( "      }" ) )			
 		    x <- c( x, paste0( "      // Qstarjp, Eq. 13" ) )
 		    x <- c( x, paste0( "      for (i in 1:F){" ) )
 			# x <- c( x, paste0( "        QstarjpT",uniqueTj[i],"[i,i,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix( -1*( matrix_exp(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) - IF2 ) * flatten_matrix_rowwise(to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,i];" ) )
@@ -461,6 +474,13 @@ run.dir="C:/users/martin/Desktop/temp"
 		    # x <- c( x, paste0( "          QstarjpT",uniqueTj[i],"[k,i,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = QstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p];" ) )
 		    x <- c( x, paste0( "        }" ) )
 		    x <- c( x, paste0( "      }" ) )
+		    x <- c( x, paste0( "      // Qstarjp Cholesky" ) )
+		    x <- c( x, paste0( "      for (i in 1:F){" ) )
+			x <- c( x, paste0( "        for (k in 1:F){" ) )
+		    x <- c( x, paste0( "          QstarjpCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = cholesky_decompose( to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) )[i,k];" ) )
+		    x <- c( x, paste0( "        }" ) )
+		    x <- c( x, paste0( "      }" ) )			
+			
 	                            # x <- c( x, paste0( "for (i in 1:F) {" ) )
                                 # x <- c( x, paste0( "    for (k in 1:F) {" ) )
                                 # x <- c( x, paste0( "        print(\"Qstarjp[\", i, \",\", k, \"] = \", QstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]);" ) )
@@ -485,25 +505,27 @@ run.dir="C:/users/martin/Desktop/temp"
 			x <- c( x, paste0( "  // #",i,"# loop over time points of persons with T=",uniqueTj[i] ) )
 			x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
 			x <- c( x, paste0( "    // first time point, Eq. 17" ) )
-x <- c( x, paste0( "        print( \"Sigmawjp: \", to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]) );" ) )
-			x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal(to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
+# x <- c( x, paste0( "        print( \"Sigmawjp: \", to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]) );" ) )
+			# x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal(to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
+			x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
 			x <- c( x, paste0( "    // loop beginning at second time points" ) )
 			x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
 			x <- c( x, paste0( "      // time series, Eq. 15/16 " ) )
-x <- c( x, paste0( "        print( \"QstarjpT: \", to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) );" ) )
-			x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])+(IF - to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]))*to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
+# x <- c( x, paste0( "        print( \"QstarjpT: \", to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) );" ) )
+			# x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])+(IF - to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]))*to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
+			x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])+(IF - to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]))*to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),to_matrix(QstarjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
 			x <- c( x, paste0( "    }" ) )
 			x <- c( x, paste0( "    // loop over all time points" ) )
 			x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
 			x <- c( x, paste0( "      // measurement model, Eq. 18/19 " ) )
-			x <- c( x, paste0( "      to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal( Delta*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),Sigmaeps_pos_def);" ) )
+			x <- c( x, paste0( "      to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky( Delta*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),SigmaepsChol);" ) )
 			x <- c( x, paste0( "    }" ) )
 			x <- c( x, paste0( "  }" ) )
 		}
 		x <- c( x, paste0( "  // epsAt, Eq. 4; epsQt, Eq. 5" ) )
 		x <- c( x, paste0( "  for( p in 1:Tunique ){" ) )
-		x <- c( x, paste0( "    to_vector( epsAt[,1,p] ) ~ multi_normal( to_vector(zerovecF2)  , SigmaepsA_pos_def );" ) )
-		x <- c( x, paste0( "    to_vector( epsQt[,1,p] ) ~ multi_normal( to_vector(zerovecFF12), SigmaepsQ_pos_def );" ) )
+		x <- c( x, paste0( "    to_vector( epsAt[,1,p] ) ~ multi_normal_cholesky( to_vector(zerovecF2)  , SigmaepsAChol );" ) )
+		x <- c( x, paste0( "    to_vector( epsQt[,1,p] ) ~ multi_normal_cholesky( to_vector(zerovecFF12), SigmaepsQChol );" ) )
 		x <- c( x, paste0( "  }" ) )
 		# priors for parameters of mixed structures
 		# if( length( parameters.of.mixed.structures ) > 0 ){		
@@ -536,7 +558,7 @@ x <- c( x, paste0( "        print( \"QstarjpT: \", to_matrix(QstarjpT",uniqueTj[
 		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum, "IF"=IF, "IF2"=IF2, "S1"=S1, "S2"=S2, "S3"=S3, "tunique"=tunique, "zerovecF2"=zerovecF2, "zerovecFF12"=zerovecFF12 ) # , "O"=O,"M"=O,"A"=matrix(1,O,O),"B"=matrix(1,M,M)
 		# temporary
 		# dat <- c( dat, list( "At"=At, "Qt"=Qt ) ) # "Ajp"=Ajp, "Qjp"=Qjp, "Sigmawjp"=Sigmawjp, "Astarjp"=Astarjp, "Qstarjp"=Qstarjp, "mujp"=mujp
-		dat <- c( dat, list( "Q0"=Q0, "Qchange"=Qchange, "SigmaepsA"=SigmaepsA, "SigmaepsQ"=SigmaepsQ, "Sigmaeps"=Sigmaeps, "A0"=A0, "Achange"=Achange, "Delta"=Delta ) )
+		# dat <- c( dat, list( "Q0"=Q0, "Qchange"=Qchange, "SigmaepsA"=SigmaepsA, "SigmaepsQ"=SigmaepsQ, "Sigmaeps"=Sigmaeps, "A0"=A0, "Achange"=Achange, "Delta"=Delta ) )
 		# yjpT, deltajpT, TEMP mujpT AjpT QjpT
 		dat <- c( dat, yjpT, deltajpT, mujpT, ptuniquejpT ) # , AjpT, QjpT
 		# add fixed structures
@@ -556,19 +578,53 @@ x <- c( x, paste0( "        print( \"QstarjpT: \", to_matrix(QstarjpT",uniqueTj[
 		starting.values[grepl("^sigmaepsQ[[:digit:]]+.*$", names( starting.values ) )] <- diag( keep.fixed$SigmaepsQ )
 		
 		if( length( parameters.of.mixed.structures ) > 0 ){		
-			eval(parse(text=paste0( "init_fun <- function(...) c( list(  ",paste( paste0( "'", parameters.of.mixed.structures, "'=",starting.values[parameters.of.mixed.structures],"" ), collapse=", " ),"  ) )" ))) # , 'Q0'=keep.fixed$Q0, 'Qchange'=keep.fixed$Qchange
+			# eval(parse(text=paste0( "init_fun <- function(...) c( list(  ",paste( paste0( "'", parameters.of.mixed.structures, "'=",starting.values[parameters.of.mixed.structures],"" ), collapse=", " ),"  ) )" ))) # , 'Q0'=keep.fixed$Q0, 'Qchange'=keep.fixed$Qchange
 			# eval(parse(text=paste0( "init_fun <- function(...) c( list(  ",paste( paste0( "'", parameters.of.mixed.structures, "'=1" ), collapse=", " ),"  ) )" )))
 			# eval(parse(text=paste0( "init_fun <- function(...) c( list(  ",paste( paste0( "'", parameters.of.mixed.structures, "'=1" ), collapse=", " ),"  ), s.val )" )))
 		} else {
-			init_fun <- "random"
+			# init_fun <- "random"
 		}
+		
+epsAt[] <- 0
+epsQt[] <- 0
+Q0 <- keep.fixed$Q0
+Q0[] <- 0
+diag( Q0 ) <- 1
+Qchange <- keep.fixed$Qchange
+Qchange[] <- 0
+diag( Qchange ) <- 10^-6
+A0 <- keep.fixed$A0
+A0[] <- 0
+diag( A0 ) <- -0.75
+Achange <- keep.fixed$Achange
+Achange[] <- 0
+sigmaepsA.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsA.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsA.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
+sigmaepsQ.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsQ.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsQ.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
+sigmaeps.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaeps[[:digit:]]+.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaeps[[:digit:]]+.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
+lambda.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^lambda[[:digit:]]+.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^lambda[[:digit:]]+.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
+
+		eval(parse(text=paste0( "init_fun <- function(...) c( list( 'epsAt'=epsAt, 'epsQt'=epsQt, 'A0'=A0, 'Achange'=Achange, 'Q0'=Q0, 'Qchange'=Qchange,",sigmaepsA.sv,", ",sigmaepsQ.sv,", ",sigmaeps.sv,", ",lambda.sv," ) )" )))
+
+
 
 print(Tj);flush.console()
 		# fit
 		fit <- stan( file = syntax.path, data = dat, chains = 1, iter = 10, init=init_fun )
+		# fit <- stan( file = syntax.path, data = dat, chains = 1, iter = 10 )
 		
 		print( fit )
 
+		m <- as.matrix(fit)
+		colMeans( m[,grepl("^Delta.*$",colnames(m))] )
+		colMeans( m[,grepl("^A0.*$",colnames(m))] )
+		colMeans( m[,grepl("^Achange.*$",colnames(m))] )
+		colMeans( m[,grepl("^Q0\\[.*$",colnames(m))] )
+		colMeans( m[,grepl("^Qchange\\[.*$",colnames(m))] )
+		colMeans( m[,grepl("^SigmaepsA.*$",colnames(m))] )
+		colMeans( m[,grepl("^SigmaepsQ.*$",colnames(m))] )
+		colMeans( m[,grepl("^Sigmaeps\\[.*$",colnames(m))] )
+		
+		
 		
 		cat(x,sep="\n")
 
