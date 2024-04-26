@@ -113,6 +113,8 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 		epsmut <- epsmut[,,1:Tunique,drop=FALSE]
 		epsAt <- epsAt[,,1:Tunique,drop=FALSE]
 		epsQt <- epsQt[,,1:Tunique,drop=FALSE]
+		
+		
 		# indices of individual time points in tunique vector
 		ptuniquejp <- tjp
 		for ( r in 1:nrow(ptuniquejp) ){

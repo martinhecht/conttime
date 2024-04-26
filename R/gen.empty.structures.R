@@ -9,14 +9,38 @@
 #' @param
 #' @return
 
-# TODO
-# add tunique, ptuniquejp
-
 ## Function definition
-gen.empty.structures <- function( F=2, I=F, N=5, T=3, Tunique=T*10, env=NULL, verbose=FALSE ){
+gen.empty.structures <- function( env, verbose=FALSE ){
 		
 		### based on tvct_v1.pdf (2024-04-04)
+
+		# put all relevant elements needed to generate structures from environment here
+		names <- c( "F", "I", "N", "T", "Tunique" )
+		if( !("Tunique" %in% ls(envir=env)) ){
+			Tunique <- 2 # totally arbitrary, should not be relevant
+			names <- names[ !names %in% "Tunique" ]
+		}
+		# get	
+		for( i in 1:length( names ) ){
+			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=env)" ) ) )
+		}		
+
+		### design-related structures 1 (not dependent on Tunique)
+		## N x T structures
+		NxT.names <- c( "tjp", "ptuniquejp" )
+		eval( parse( text = paste0( NxT.names, " <- array( as.numeric(NA), dim=c(N,T) )" ) ) )
+
+		## N x (T-1) structures
+		NxTmin1.names <- c( "deltajp" )
+		eval( parse( text = paste0( NxTmin1.names, " <- array( as.numeric(NA), dim=c(N,T-1) )" ) ) )
+
+		### design-related structures 2 (dependent on Tunique)
+		## Tunique structures
+		Tunique.names <- c( "tunique" )
+		eval( parse( text = paste0( Tunique.names, " <- array( as.numeric(NA), dim=c(Tunique) )" ) ) )
+
 		
+		### model-related structures
 		## F x F structures
 		FxF.names <- c( "A0","Achange","Q0","Qchange","Sigmamu","Sigmaepsmu" )
 		eval( parse( text = paste0( FxF.names, " <- array( as.numeric(NA), dim=c(F,F) )" ) ) )
@@ -97,14 +121,6 @@ gen.empty.structures <- function( F=2, I=F, N=5, T=3, Tunique=T*10, env=NULL, ve
 		F2xF2xNxT.names <- c( "Ahashjp" )
 		eval( parse( text = paste0( F2xF2xNxT.names, " <- array( as.numeric(NA), dim=c(F^2,F^2,N,T) )" ) ) )
 		
-		## N x T structures
-		NxT.names <- c( "tjp" )
-		eval( parse( text = paste0( NxT.names, " <- array( as.numeric(NA), dim=c(N,T) )" ) ) )
-
-		## N x (T-1) structures
-		NxTmin1.names <- c( "deltajp" )
-		eval( parse( text = paste0( NxTmin1.names, " <- array( as.numeric(NA), dim=c(N,T-1) )" ) ) )
-		
 		## F^2 x F^2 structures
 		F2xF2.names <- c( "SigmaepsA" )
 		eval( parse( text = paste0( F2xF2.names, " <- array( as.numeric(NA), dim=c(F^2,F^2) )" ) ) )
@@ -150,7 +166,7 @@ gen.empty.structures <- function( F=2, I=F, N=5, T=3, Tunique=T*10, env=NULL, ve
 		if( is.null( env ) ){
 			env <- new.env()
 		}
-		str.names <- c( FxF.names, IxF.names, IxI.names, Ix1.names, Fx1.names, Fx1xN.names, Fx1xNxT.names, Fx1xTunique.names, Ix1xNxT.names, FxFxNxT.names, FxFxNxTmin1.names, FxFxTunique.names, F2x1xNxT.names, F2x1xTunique.names, FF12x1xNxT.names, FF12x1xTunique.names, F2xF2xNxT.names, NxT.names, NxTmin1.names, F2xF2.names, F2x1.names, FF12xFF12.names, FF12x1.names, N.names, IxF.names, special.names, "F", "I", "N", "T", "Tunique", "str.names" )
+		str.names <- c( FxF.names, IxF.names, IxI.names, Ix1.names, Fx1.names, Fx1xN.names, Tunique.names, Fx1xNxT.names, Fx1xTunique.names, Ix1xNxT.names, FxFxNxT.names, FxFxNxTmin1.names, FxFxTunique.names, F2x1xNxT.names, F2x1xTunique.names, FF12x1xNxT.names, FF12x1xTunique.names, F2xF2xNxT.names, NxT.names, NxTmin1.names, F2xF2.names, F2x1.names, FF12xFF12.names, FF12x1.names, N.names, IxF.names, special.names, "F", "I", "N", "T", "Tunique", "str.names" )
 		for( i in 1:length( str.names ) ){
 			assign( str.names[i], eval( parse( text=str.names[i] ) ), envir = env, inherits = FALSE, immediate=TRUE )
 		}
