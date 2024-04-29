@@ -15,15 +15,26 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 		### based on tvct_v1.pdf (2024-04-04)
 
 		# put all relevant elements needed to generate structures from environment here
-		names <- c( "F", "I", "N", "T", "Tunique" )
-		if( !("Tunique" %in% ls(envir=env)) ){
-			Tunique <- 2 # totally arbitrary, should not be relevant
-			names <- names[ !names %in% "Tunique" ]
-		}
-		# get	
-		for( i in 1:length( names ) ){
-			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=env)" ) ) )
-		}		
+		# nams <- c( "F", "I", "N", "T", "Tunique" )
+		# if( !("Tunique" %in% ls(envir=env)) ){
+			# Tunique <- 2 # totally arbitrary, should not be relevant
+			# nams <- nams[ !nams %in% "Tunique" ]
+		# } 
+		# else {
+			# Tunique <- get('Tunique', envir=env, inherits=FALSE)
+		# }
+		# get
+		# current_env <- environment()
+		# for( i in 1:length( nams ) ){
+			# eval( parse( text=paste0( "assign( '",nams[i], "', get('", nams[i], "', envir=env, inherits=FALSE), envir=current_env )" ) ) )
+			# assign( nams[i], get(nams[i], envir=env, inherits=FALSE), envir=current_env )
+			# assign( nams[i], get(nams[i],envir=env,inherits=FALSE), envir=parent.frame() )
+		# }
+		F <- get('F', envir=env, inherits=FALSE)
+		I <- get('I', envir=env, inherits=FALSE)
+		N <- get('N', envir=env, inherits=FALSE)
+		T <- get('T', envir=env, inherits=FALSE)
+		Tunique <- ifelse( "Tunique" %in% ls(envir=env), get('Tunique', envir=env, inherits=FALSE), 2 ) # totally arbitrary, should not be relevant
 
 		### design-related structures 1 (not dependent on Tunique)
 		## N x T structures
@@ -124,11 +135,12 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 		## F^2 x F^2 structures
 		F2xF2.names <- c( "SigmaepsA" )
 		eval( parse( text = paste0( F2xF2.names, " <- array( as.numeric(NA), dim=c(F^2,F^2) )" ) ) )
+		
 		# Selection matrices
 		S2 <- array( 0, dim=c(F^2,F^2) )
-		f2 <- function( n ) n*(F+1)-F
+		f2 <- function( n, X ) n*(X+1)-X
 		for( n in 1:F ){
-			S2[f2(n),f2(n)] <- 1
+			S2[f2(n,F),f2(n,F)] <- 1
 		}
 		S1 <- array( 0, dim=c(F^2,F^2) )
 		diag( S1 ) <- -(diag(S2) - 1)
@@ -163,15 +175,15 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 		special.names <- "S3"
 		
 		# environment
-		if( is.null( env ) ){
-			env <- new.env()
-		}
+		# if( is.null( env ) ){
+			env2 <- new.env()
+		# }
 		str.names <- c( FxF.names, IxF.names, IxI.names, Ix1.names, Fx1.names, Fx1xN.names, Tunique.names, Fx1xNxT.names, Fx1xTunique.names, Ix1xNxT.names, FxFxNxT.names, FxFxNxTmin1.names, FxFxTunique.names, F2x1xNxT.names, F2x1xTunique.names, FF12x1xNxT.names, FF12x1xTunique.names, F2xF2xNxT.names, NxT.names, NxTmin1.names, F2xF2.names, F2x1.names, FF12xFF12.names, FF12x1.names, N.names, IxF.names, special.names, "F", "I", "N", "T", "Tunique", "str.names" )
 		for( i in 1:length( str.names ) ){
-			assign( str.names[i], eval( parse( text=str.names[i] ) ), envir = env, inherits = FALSE, immediate=TRUE )
+			assign( str.names[i], eval( parse( text=str.names[i] ) ), envir = env2, inherits = FALSE, immediate=TRUE )
 		}
 		
-		return( env )
+		return( env2 )
 }
 
 
@@ -184,14 +196,6 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 # for( Rfile in Rfiles ){
 	# source( file.path( Rfiles.folder, Rfile ) )
 # }
-
-# print( m <- gen.empty.structures() )
-# ls( envir=m )
-# get( "A0", envir=m, inherits=FALSE )
-# get( "Achange", envir=m, inherits=FALSE )
-# get( "Tj", envir=m, inherits=FALSE )
-# get( "deltajp", envir=m, inherits=FALSE )
-
 
 
 ### test

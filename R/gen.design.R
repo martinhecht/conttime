@@ -10,16 +10,19 @@
 #' @return
 
 ## Function definition
-gen.design <- function( F=2, I=F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", verbose=FALSE ){
+gen.design <- function( F=2, I=2*F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", verbose=FALSE ){
 		
 		### based on tvct_v1.pdf (2024-04-04)
+
+		# checks
+		if( ! (F == 2) ) stop( paste0( "F = ", F, " is not supported, currently only F=2 is available" ) )
 
 		# create new environment
 		temp.env <- new.env()
 
 		# put all design input elements on environment
 		design.char <- c( "F", "I", "N", "T" )
-		for( i in 1:length( names ) ){
+		for( i in 1:length( design.char ) ){
 			assign( design.char[i], eval( parse( text=design.char[i] ) ), envir = temp.env, inherits = FALSE, immediate=TRUE )
 		}
 
@@ -27,10 +30,13 @@ gen.design <- function( F=2, I=F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", ve
 		str.env <- gen.empty.structures( env=temp.env )
 		# put all needed structures here
 		str.names <- c( "tjp", "deltajp", "ptuniquejp" )
-		for( i in 1:length( str.names ) ){
-			eval( parse( text=paste0( str.names[i], " <- get('", str.names[i], "', envir=str.env)" ) ) )
-		}
-	
+		# for( i in 1:length( str.names ) ){
+			# eval( parse( text=paste0( str.names[i], " <- get('", str.names[i], "', envir=str.env, inherits=FALSE)" ) ) )
+		# }
+		tjp <- get('tjp', envir=str.env, inherits=FALSE)
+		deltajp <- get('deltajp', envir=str.env, inherits=FALSE)
+		ptuniquejp <- get('ptuniquejp', envir=str.env, inherits=FALSE)
+		
 		# seed
 		if( seed %in% "random" ){
 			gen.design.seed <- sample( 1:999999999, 1 )
@@ -43,8 +49,17 @@ gen.design <- function( F=2, I=F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", ve
 
 		# lowest individual T
 		low <- ifelse( T+Tdiv >=2, T+Tdiv, 2 )
-		# Tj - sorting very important!!
-		Tj <- sort( as.integer( sample( as.character(min(low,T):T), N, replace = TRUE ) ) )
+		if( N == 1 ){
+			Tj <- T
+		} else if( N == 2 ){
+			Tj <- c( sample( as.character(min(low,T):T), N-1, replace = TRUE ), T )
+		} else if( N >= 3 ){
+			Tj <- c( min(low,T), sample( as.character(min(low,T):T), N-2, replace = TRUE ), T )
+		} else {
+			stop( paste0( "N = ", N, " not >= 1\n" ) )
+		}
+		# sorting of Tj very important!!
+		Tj <- sort( as.integer( Tj ) )
 
 		# deltajp
 		for( j in 1:N ){

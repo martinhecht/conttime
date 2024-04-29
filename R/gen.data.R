@@ -10,30 +10,88 @@
 #' @return
 
 ## Function definition
-gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
-		
+gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
+
 		### based on tvct_v1.pdf (2024-04-04)
 
 		# require packages
-		require( mvtnorm )
-		require( expm )
+		requireNamespace( "mvtnorm" )
+		requireNamespace( "expm" )
 	
 		# seed
 		if( seed %in% "random" ){
 			seed <- sample( 1:999999999, 1 )
 		}
 		set.seed( seed )
-		
+
 		# get empty structures
-		if( is.null( env ) ) env <- gen.empty.structures()
+		str.env <- gen.empty.structures( env=design.env )
 
-		# put all elements from environment here
-		names <- ls(envir=env)
-		for( i in 1:length( names ) ){
-			eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=env)" ) ) )
-		}
+		# put all empty structures here
+		# names <- ls(envir=str.env)
+		# for( i in 1:length( names ) ){
+			# eval( parse( text=paste0( names[i], " <- get('", names[i], "', envir=str.env, inherits=FALSE)" ) ) )
+		# }
+		A0          <- get('A0'         , envir=str.env, inherits=FALSE)
+		Achange     <- get('Achange'    , envir=str.env, inherits=FALSE)
+		SigmaepsA   <- get('SigmaepsA'  , envir=str.env, inherits=FALSE)
+		Q0          <- get('Q0'         , envir=str.env, inherits=FALSE)
+		Qchange     <- get('Qchange'    , envir=str.env, inherits=FALSE)
+		SigmaepsQ   <- get('SigmaepsQ'  , envir=str.env, inherits=FALSE)
+		mu0         <- get('mu0'        , envir=str.env, inherits=FALSE)
+		muchange    <- get('muchange'   , envir=str.env, inherits=FALSE)
+		Sigmaepsmu  <- get('Sigmaepsmu' , envir=str.env, inherits=FALSE)
+		Sigmamu     <- get('Sigmamu'    , envir=str.env, inherits=FALSE)
+		Delta       <- get('Delta'      , envir=str.env, inherits=FALSE)
+		Sigmaeps    <- get('Sigmaeps'   , envir=str.env, inherits=FALSE)
+		epsAt       <- get('epsAt'      , envir=str.env, inherits=FALSE)
+		At          <- get('At'         , envir=str.env, inherits=FALSE)
+		epsQt       <- get('epsQt'      , envir=str.env, inherits=FALSE)
+		Qt          <- get('Qt'         , envir=str.env, inherits=FALSE)
+		epsmut      <- get('epsmut'     , envir=str.env, inherits=FALSE)
+		mut         <- get('mut'        , envir=str.env, inherits=FALSE)
+		muj         <- get('muj'        , envir=str.env, inherits=FALSE)
+		Ajp         <- get('Ajp'        , envir=str.env, inherits=FALSE)
+		Qjp         <- get('Qjp'        , envir=str.env, inherits=FALSE)
+		mujp        <- get('mujp'       , envir=str.env, inherits=FALSE)
+		Ahashjp     <- get('Ahashjp'    , envir=str.env, inherits=FALSE)
+		Sigmawjp    <- get('Sigmawjp'   , envir=str.env, inherits=FALSE)
+		Astarjp     <- get('Astarjp'    , envir=str.env, inherits=FALSE)
+		Qstarjp     <- get('Qstarjp'    , envir=str.env, inherits=FALSE)
+		thetajp     <- get('thetajp'    , envir=str.env, inherits=FALSE)
+		omegajp     <- get('omegajp'    , envir=str.env, inherits=FALSE)
+		epsjp       <- get('epsjp'      , envir=str.env, inherits=FALSE)
+		yjp         <- get('yjp'        , envir=str.env, inherits=FALSE)
+		zerovecF    <- get('zerovecF'   , envir=str.env, inherits=FALSE)
+		zerovecF2   <- get('zerovecF2'  , envir=str.env, inherits=FALSE)
+		zerovecFF12 <- get('zerovecFF12', envir=str.env, inherits=FALSE)
+		zerovecI    <- get('zerovecI'   , envir=str.env, inherits=FALSE)
+		IF          <- get('IF'         , envir=str.env, inherits=FALSE)
+		IF2         <- get('IF2'        , envir=str.env, inherits=FALSE)
+		S1          <- get('S1'         , envir=str.env, inherits=FALSE)
+		S2          <- get('S2'         , envir=str.env, inherits=FALSE)
+		S3          <- get('S3'         , envir=str.env, inherits=FALSE)
+		        # <- get('yjp'       , envir=str.env, inherits=FALSE)
 
-		### default values for model parameters
+
+
+		# put all elements from design.env (should contain all design elements) here
+		# design.names <- ls(envir=design.env)
+		# for( i in 1:length( design.names ) ){
+			# eval( parse( text=paste0( design.names[i], " <- get('", design.names[i], "', envir=design.env, inherits=FALSE)" ) ) )
+		# }
+		F          <- get('F'         , envir=design.env, inherits=FALSE)
+		I          <- get('I'         , envir=design.env, inherits=FALSE)
+		N          <- get('N'         , envir=design.env, inherits=FALSE)
+		T          <- get('T'         , envir=design.env, inherits=FALSE)
+		Tunique    <- get('Tunique'   , envir=design.env, inherits=FALSE)
+		Tj         <- get('Tj'        , envir=design.env, inherits=FALSE)
+		tunique    <- get('tunique'   , envir=design.env, inherits=FALSE)
+		ptuniquejp <- get('ptuniquejp', envir=design.env, inherits=FALSE)
+		deltajp    <- get('deltajp'   , envir=design.env, inherits=FALSE)
+
+		### default values for model parameters ###
+		
 		A0[] <- 0.1
 		diag( A0 ) <- -0.75
 		Q0[] <- 0.25
@@ -78,53 +136,19 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 		Sigmaeps[] <- 0
 		diag( Sigmaeps ) <- 0.10
 
-		## gen design characteristics
-		# Tj
-		Tj <- as.integer( sample( as.character(min(2,T):T), N, replace = TRUE ) )
-		# Tj <- as.integer( sample( as.character(T), N, replace = TRUE ) )
-		# deltajp
-		for( j in 1:N ){
-			for( p in 1:(Tj[j]-1) ){
-				deltajp[j,p] <- sample( c(0.5,1,1.5), 1 )
-			}
+		## Delta (default)
+		nitems.per.dim <- floor( I/F )
+		Delta[] <- 0
+		for( f in 1:F ){
+			Delta[ ((f-1)*nitems.per.dim+1):(f*nitems.per.dim) ,f] <- 1
 		}
-		# tjp
-		for( j in 1:N ){
-			# first time point
-			tjp[j,1] <- sample( c(-1,-0.5,0,0.5,1), 1 )
-			for( p in 2:Tj[j] ){
-				tjp[j,p] <- tjp[j,p-1] + deltajp[j,p-1]
-			}
+		if( any( rs <- rowSums( Delta ) == 0 ) ){
+			Delta[which(rs),F] <- 1
 		}
 
-		# all unique time points
-		tunique <- unique( sort ( sapply( tjp, "c" ) ) )
-		tunique <- tunique[ !is.na( tunique ) ]
-		# number of unique time points
-		# !!!predefined in gen.empty.structures!!!
-		# adjust here
-		if( ( Tuniquenew <- length( tunique ) ) <= Tunique ){
-			Tunique <- Tuniquenew
-		} else stop( "predefined Tunique is lower than empirical Tunique" )
-		# modify structures depending on Tunique
-		At <- At[,,1:Tunique,drop=FALSE]
-		Qt <- Qt[,,1:Tunique,drop=FALSE]
-		mut <- mut[,,1:Tunique,drop=FALSE]
-		epsmut <- epsmut[,,1:Tunique,drop=FALSE]
-		epsAt <- epsAt[,,1:Tunique,drop=FALSE]
-		epsQt <- epsQt[,,1:Tunique,drop=FALSE]
-		
-		
-		# indices of individual time points in tunique vector
-		ptuniquejp <- tjp
-		for ( r in 1:nrow(ptuniquejp) ){
-			for ( c in 1:ncol(ptuniquejp) ){
-				if( !is.na( ptuniquejp[r,c] ) ){
-					ptuniquejp[r,c] <- which( tunique %in% ptuniquejp[r,c] )
-				}
-			}
-		}
 
+		### data generation ###
+		
 		# time-varying parameters
 		for( p in 1:Tunique ){
 			# Eq. 2
@@ -144,19 +168,8 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 			# muj, Eq. 8
 			muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu )
 			for( p in 1:Tj[j] ){
-				# Eq. 2
-				# epsAjp[,,j,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
-				# Ajp[,,j,p] <- irow( S1 %*% row( A0 + Achange*tjp[j,p] + irow(epsAjp[,,j,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tjp[j,p] + irow(epsAjp[,,j,p,drop=FALSE]) ) ) ) )
-				# Eq. 3
-				# epsQjp[,,j,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
-				# Qjp[,,j,p] <- irow( S1 %*% row( Q0 + Qchange*tjp[j,p] + irow(S3%*%epsQjp[,,j,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tjp[j,p] + irow(S3%*%epsQjp[,,j,p,drop=FALSE]) ) ) )
-				# Eq. 10
-				# epsmujp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmaepsmu )
-				# Eq. 9
-				# mujp[,1,j,p] <- mu0 + muchange*tjp[j,p] + as.matrix( epsmujp[,1,j,p,drop=FALSE] ) + as.matrix( muj[,1,j,drop=FALSE] )
-				
 				# Eq. 11
-				Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]				
+				Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]
 				Qjp[,,j,p] <- Qt[,,ptuniquejp[j,p]]
 				mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
 				# Ahash, Eq. 14
@@ -185,16 +198,6 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 				thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + ( IF - Astarjp[,,j,p-1] ) %*% as.matrix( mujp[,1,j,p,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
 			}
 		}
-	
-		## Delta (default)
-		nitems.per.dim <- floor( I/F )
-		Delta[] <- 0
-		for( f in 1:F ){
-			Delta[ ((f-1)*nitems.per.dim+1):(f*nitems.per.dim) ,f] <- 1
-		}
-		if( any( rs <- rowSums( Delta ) == 0 ) ){
-			Delta[which(rs),F] <- 1
-		}
 		
 		for( j in 1:N ){
 			for( p in 1:Tj[j] ){
@@ -209,13 +212,13 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 		# if( j==N & all(is.na(yjp[,1,N,])) ) browser()
 		
 		# add structures that should additionally be returned
-		str.names <- c( str.names, "tunique", "ptuniquejp" )
-		
-		env2 <- new.env()
-		for( i in 1:length( str.names ) ){
-			assign( str.names[i], eval( parse( text=str.names[i] ) ), envir = env2, inherits = FALSE, immediate=TRUE )
+		data.names <- ls()
+		data.names <- data.names[ !data.names %in% c("f", "j", "p", "rs", "design.env", "str.env" ) ]
+		data.env <- new.env()
+		for( i in 1:length( data.names ) ){
+			assign( data.names[i], eval( parse( text=data.names[i] ) ), envir = data.env, inherits = FALSE, immediate=TRUE )
 		}
-		return( env2 )
+		return( data.env )
 }
 
 
@@ -224,19 +227,22 @@ gen.data <- function( defaults=c(1), env=NULL, seed="random", verbose=FALSE ){
 # Rfiles.folder <- file.path( user.profile,
                                     # "Dropbox/139_conttime/conttime/R" )
 # Rfiles <- list.files( Rfiles.folder , pattern="*.R" )
-# Rfiles <- Rfiles[ !Rfiles %in% c("gen.data.R") ]
+# Rfiles <- Rfiles[ !Rfiles %in% c("gen.data.R") ] # ,"estimate.R"
 # for( Rfile in Rfiles ){
 	# source( file.path( Rfiles.folder, Rfile ) )
 # }
 
-# m <- gen.data()
-# ls( envir=m )
+# design.env <- gen.design()
+# ls( envir=design.env )
+
+# data.env <- gen.data( design.env=design.env )
+# ls( envir=data.env )
+
 
 # while( TRUE ){
-	# e <- gen.empty.structures()
-	# e <- gen.empty.structures(T=5,N=8,F=2,I=11)
-	# m <- gen.data(env=e)
-	# print( get( "Tj", envir=m, inherits=FALSE ) ); flush.console()
+	# design.env <- gen.design(T=20,Tdiv=-20,N=3)
+	# data.env <- gen.data(design.env=design.env)
+	# print( get( "Tj", envir=data.env, inherits=FALSE ) ); flush.console()
 # }
 
 # ( Tj <- get( "Tj", envir=m, inherits=FALSE ) )
