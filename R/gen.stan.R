@@ -15,16 +15,25 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 
 		### based on tvct_v1.pdf (2024-04-04)
 		
-		# put all relevant data and model parameter elements from data environment here
-		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "deltajp", "yjp", "tunique", "ptuniquejp" )
-		model.parameters <- c( "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu", "Sigmamu", "Delta", "Sigmaeps" )
-		additional.structures <- c( "IF", "IF2", "S1", "S2", "S3", "zerovecF", "zerovecF2", "zerovecFF12", "Q0", "Qchange", "SigmaepsA", "SigmaepsQ", "Sigmaeps", "A0", "Achange", "Delta", "epsAt", "epsQt" )
+		## put all relevant data and model parameter elements from data environment here
 		# all.elements <- c( data.structures, model.parameters, additional.structures )
 		# for( i in 1:length( all.elements ) ){
 			# eval( parse( text=paste0( all.elements[i], " <- get('", all.elements[i], "', envir=data.env, inherits=FALSE)" ) ) )
 		# }
 		# print( Tj ); flush.console()
+		data.structures <- c( "F", "I", "N", "T", "Tunique", "Tj", "tunique", "ptuniquejp", "deltajp", "yjp" )
+		F           <- get('F'          , envir=data.env, inherits=FALSE)
+		I           <- get('I'          , envir=data.env, inherits=FALSE)
+		N           <- get('N'          , envir=data.env, inherits=FALSE)
+		T           <- get('T'          , envir=data.env, inherits=FALSE)
+		Tunique     <- get('Tunique'    , envir=data.env, inherits=FALSE)
+		Tj          <- get('Tj'         , envir=data.env, inherits=FALSE)
+		tunique     <- get('tunique'    , envir=data.env, inherits=FALSE)
+		ptuniquejp  <- get('ptuniquejp' , envir=data.env, inherits=FALSE)
+		deltajp     <- get('deltajp'    , envir=data.env, inherits=FALSE)
+		yjp         <- get('yjp'        , envir=data.env, inherits=FALSE)
 
+		model.parameters <- c( "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu", "Sigmamu", "Delta", "Sigmaeps" )
 		A0          <- get('A0'         , envir=data.env, inherits=FALSE)
 		Achange     <- get('Achange'    , envir=data.env, inherits=FALSE)
 		SigmaepsA   <- get('SigmaepsA'  , envir=data.env, inherits=FALSE)
@@ -37,42 +46,35 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		Sigmamu     <- get('Sigmamu'    , envir=data.env, inherits=FALSE)
 		Delta       <- get('Delta'      , envir=data.env, inherits=FALSE)
 		Sigmaeps    <- get('Sigmaeps'   , envir=data.env, inherits=FALSE)
-		epsAt       <- get('epsAt'      , envir=data.env, inherits=FALSE)
-		At          <- get('At'         , envir=data.env, inherits=FALSE)
-		epsQt       <- get('epsQt'      , envir=data.env, inherits=FALSE)
-		Qt          <- get('Qt'         , envir=data.env, inherits=FALSE)
-		epsmut      <- get('epsmut'     , envir=data.env, inherits=FALSE)
-		mut         <- get('mut'        , envir=data.env, inherits=FALSE)
-		muj         <- get('muj'        , envir=data.env, inherits=FALSE)
-		Ajp         <- get('Ajp'        , envir=data.env, inherits=FALSE)
-		Qjp         <- get('Qjp'        , envir=data.env, inherits=FALSE)
-		mujp        <- get('mujp'       , envir=data.env, inherits=FALSE)
-		Ahashjp     <- get('Ahashjp'    , envir=data.env, inherits=FALSE)
-		Sigmawjp    <- get('Sigmawjp'   , envir=data.env, inherits=FALSE)
-		Astarjp     <- get('Astarjp'    , envir=data.env, inherits=FALSE)
-		Qstarjp     <- get('Qstarjp'    , envir=data.env, inherits=FALSE)
-		thetajp     <- get('thetajp'    , envir=data.env, inherits=FALSE)
-		omegajp     <- get('omegajp'    , envir=data.env, inherits=FALSE)
-		epsjp       <- get('epsjp'      , envir=data.env, inherits=FALSE)
-		yjp         <- get('yjp'        , envir=data.env, inherits=FALSE)
+
+		# additional.structures <- c( "epsAt", "At", "epsQt", "Qt", "epsmut", "mut", "muj", "Ajp", "Qjp", "mujp", "Ahashjp", "Sigmawjp", "Astarjp", "Qstarjp", "thetajp", "omegajp", "epsjp", "zerovecF", "zerovecF2", "zerovecFF12", "zerovecI", "IF", "IF2", "S1", "S2", "S3"
+		additional.structures <- c( "IF", "IF2", "S1", "S2", "S3", "zerovecF", "zerovecF2", "zerovecFF12" )
+		# epsAt       <- get('epsAt'      , envir=data.env, inherits=FALSE)
+		# At          <- get('At'         , envir=data.env, inherits=FALSE)
+		# epsQt       <- get('epsQt'      , envir=data.env, inherits=FALSE)
+		# Qt          <- get('Qt'         , envir=data.env, inherits=FALSE)
+		# epsmut      <- get('epsmut'     , envir=data.env, inherits=FALSE)
+		# mut         <- get('mut'        , envir=data.env, inherits=FALSE)
+		# muj         <- get('muj'        , envir=data.env, inherits=FALSE)
+		# Ajp         <- get('Ajp'        , envir=data.env, inherits=FALSE)
+		# Qjp         <- get('Qjp'        , envir=data.env, inherits=FALSE)
+		# mujp        <- get('mujp'       , envir=data.env, inherits=FALSE)
+		# Ahashjp     <- get('Ahashjp'    , envir=data.env, inherits=FALSE)
+		# Sigmawjp    <- get('Sigmawjp'   , envir=data.env, inherits=FALSE)
+		# Astarjp     <- get('Astarjp'    , envir=data.env, inherits=FALSE)
+		# Qstarjp     <- get('Qstarjp'    , envir=data.env, inherits=FALSE)
+		# thetajp     <- get('thetajp'    , envir=data.env, inherits=FALSE)
+		# omegajp     <- get('omegajp'    , envir=data.env, inherits=FALSE)
+		# epsjp       <- get('epsjp'      , envir=data.env, inherits=FALSE)
 		zerovecF    <- get('zerovecF'   , envir=data.env, inherits=FALSE)
 		zerovecF2   <- get('zerovecF2'  , envir=data.env, inherits=FALSE)
 		zerovecFF12 <- get('zerovecFF12', envir=data.env, inherits=FALSE)
-		zerovecI    <- get('zerovecI'   , envir=data.env, inherits=FALSE)
+		# zerovecI    <- get('zerovecI'   , envir=data.env, inherits=FALSE)
 		IF          <- get('IF'         , envir=data.env, inherits=FALSE)
 		IF2         <- get('IF2'        , envir=data.env, inherits=FALSE)
 		S1          <- get('S1'         , envir=data.env, inherits=FALSE)
 		S2          <- get('S2'         , envir=data.env, inherits=FALSE)
 		S3          <- get('S3'         , envir=data.env, inherits=FALSE)
-		F           <- get('F'          , envir=data.env, inherits=FALSE)
-		I           <- get('I'          , envir=data.env, inherits=FALSE)
-		N           <- get('N'          , envir=data.env, inherits=FALSE)
-		T           <- get('T'          , envir=data.env, inherits=FALSE)
-		Tunique     <- get('Tunique'    , envir=data.env, inherits=FALSE)
-		Tj          <- get('Tj'         , envir=data.env, inherits=FALSE)
-		tunique     <- get('tunique'    , envir=data.env, inherits=FALSE)
-		ptuniquejp  <- get('ptuniquejp' , envir=data.env, inherits=FALSE)
-		deltajp     <- get('deltajp'    , envir=data.env, inherits=FALSE)
 
 		# ids (j) need to be sorted by number of time points
 		# resort.ind <- do.call( "c", sapply( unique( sort( Tj ) ), function( T ) which( Tj %in% T ), simplify=FALSE ) )
@@ -539,7 +541,9 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		# } else {
 			# init_fun <- "random"
 		# }
-		
+
+		epsAt <- get('epsAt', envir=data.env, inherits=FALSE)
+		epsQt <- get('epsQt', envir=data.env, inherits=FALSE)
 		epsAt[] <- 0
 		epsQt[] <- 0
 		Q0 <- keep.fixed$Q0
@@ -562,7 +566,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		sigmaeps.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaeps[[:digit:]]+.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaeps[[:digit:]]+.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 		lambda.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^lambda[[:digit:]]+.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^lambda[[:digit:]]+.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 
-		eval(parse(text=paste0( "init_fun <- function(...) c( list( 'epsAt'=epsAt, 'epsQt'=epsQt, 'A0'=A0, 'Achange'=Achange, 'Q0'=Q0, 'Qchange'=Qchange, 'Sigmamu'=Sigmamu,",sigmaepsA.sv,", ",sigmaepsQ.sv,", ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," ) )" )))
+		init_fun <- eval(parse(text=paste0( "function(...) c( list( 'epsAt'=epsAt, 'epsQt'=epsQt, 'A0'=A0, 'Achange'=Achange, 'Q0'=Q0, 'Qchange'=Qchange, 'Sigmamu'=Sigmamu,",sigmaepsA.sv,", ",sigmaepsQ.sv,", ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," ) )" )))
 	
 
 	# return

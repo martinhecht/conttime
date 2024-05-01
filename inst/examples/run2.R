@@ -20,7 +20,7 @@ library( conttime ) # 0.0.21 2024-04-29
 	# source( file.path( Rfiles.folder, Rfile ) )
 # }
 
-design.env <- gen.design()
+design.env <- gen.design(N=100,T=10,Tdiv=-2)
 data.env <- gen.data( design.env=design.env )
 stn <- gen.stan( data.env=data.env )
 
@@ -28,7 +28,7 @@ stn <- gen.stan( data.env=data.env )
 start <- Sys.time()
 fit <- stan( file = stn$syntax.path, data = stn$data, init=stn$init, chains = 14, iter = 10000 )
 print( runtime <- Sys.time() - start )
-save( fit, design.env, data.env, stn, file="c:/Users/martin/Dropbox/139_conttime/conttime/inst/examples/run1.Rdata" )
+save( fit, design.env, data.env, stn, runtime, file="c:/Users/martin/Dropbox/139_conttime/conttime/inst/examples/run2.Rdata" )
 # load( file="c:/Users/martin/Dropbox/139_conttime/conttime/inst/examples/run1.Rdata" )
 
 est <- get.stan( fit=fit, stn=stn, true.env=data.env )

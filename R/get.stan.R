@@ -38,8 +38,9 @@ get.stan <- function( fit, stn, true.env=NULL, verbose=FALSE ){
 		# merge estimates
 		df <- merge( df, true.df, by="par", sort=FALSE )
 		# bias
-		df$bias <- NA
-		df$bias[ df$free.or.fixed %in% "free" ] <- df$mean[ df$free.or.fixed %in% "free" ] - df$true.value[ df$free.or.fixed %in% "free" ]
+		# df$bias <- NA
+		# df$bias[ df$free.or.fixed %in% "free" ] <- df$mean[ df$free.or.fixed %in% "free" ] - df$true.value[ df$free.or.fixed %in% "free" ]
+		df$bias <- df$mean - df$true.value
 	}
 	
 	# add first column with number
