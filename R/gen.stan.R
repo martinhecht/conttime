@@ -13,6 +13,10 @@
 ## Function definition
 gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbose=FALSE ){
 
+		# trigger for no between-(co)variances in mu
+		between.mu <- FALSE
+		# between.mu <- TRUE
+
 		### based on tvct_v1.pdf (2024-04-04)
 		
 		## put all relevant data and model parameter elements from data environment here
@@ -33,7 +37,8 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		deltajp     <- get('deltajp'    , envir=data.env, inherits=FALSE)
 		yjp         <- get('yjp'        , envir=data.env, inherits=FALSE)
 
-		model.parameters <- c( "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu", "Sigmamu", "Delta", "Sigmaeps" )
+		model.parameters <- c( "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu",     "Delta", "Sigmaeps" )
+		if( between.mu ) model.parameters <- c( model.parameters, "Sigmamu" )
 		A0          <- get('A0'         , envir=data.env, inherits=FALSE)
 		Achange     <- get('Achange'    , envir=data.env, inherits=FALSE)
 		SigmaepsA   <- get('SigmaepsA'  , envir=data.env, inherits=FALSE)
@@ -43,7 +48,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		mu0         <- get('mu0'        , envir=data.env, inherits=FALSE)
 		muchange    <- get('muchange'   , envir=data.env, inherits=FALSE)
 		Sigmaepsmu  <- get('Sigmaepsmu' , envir=data.env, inherits=FALSE)
-		Sigmamu     <- get('Sigmamu'    , envir=data.env, inherits=FALSE)
+		if( between.mu ) Sigmamu     <- get('Sigmamu'    , envir=data.env, inherits=FALSE)
 		Delta       <- get('Delta'      , envir=data.env, inherits=FALSE)
 		Sigmaeps    <- get('Sigmaeps'   , envir=data.env, inherits=FALSE)
 
@@ -119,7 +124,8 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		# Sigmawjp[1,1,1,1] <- NA
 		
 		# keep fixed model parameters from data generation for starting values
-		keep.fixed <- list( "Delta"=Delta, "Sigmaeps"=Sigmaeps, "A0"=A0, "Achange"=Achange, "SigmaepsA"=SigmaepsA, "SigmaepsQ"=SigmaepsQ, "Q0"=Q0, "Qchange"=Qchange, "mu0"=mu0, "muchange"=muchange, "Sigmamu"=Sigmamu, "Sigmaepsmu"=Sigmaepsmu )
+		keep.fixed <- list( "Delta"=Delta, "Sigmaeps"=Sigmaeps, "A0"=A0, "Achange"=Achange, "SigmaepsA"=SigmaepsA, "SigmaepsQ"=SigmaepsQ, "Q0"=Q0, "Qchange"=Qchange, "mu0"=mu0, "muchange"=muchange, "Sigmaepsmu"=Sigmaepsmu )
+		if( between.mu ) keep.fixed <- c( keep.fixed, list( "Sigmamu"=Sigmamu ) )
 		
 		# Defaults
 		### TODO: ordentliche Defaults fuer Delta
@@ -132,18 +138,23 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		Achange[] <- NA
 		SigmaepsA[] <- 0
 		diag(SigmaepsA) <- NA
-		Q0[] <- NA
-		### diag(Q0) <- NA
-		Qchange[] <- NA
+		# MH 0.0.24 2024-05-03 Q0 covariance now 0
+		Q0[] <- 0
+		diag(Q0) <- NA
+		# MH 0.0.25 2024-05-03 Qchange covariance now 0
+		Qchange[] <- 0
+		diag(Qchange) <- NA
 		# Q0 <- matrix( c("q011","q021","q021","q022" ), F, F )
 		# Qchange <- matrix( c("qchange11","qchange21","qchange21","qchange22" ), F, F )
 		SigmaepsQ[] <- 0
 		diag(SigmaepsQ) <- NA
+		# MH 0.0.26 2024-05-04 variance of Q-covariance errors now 0
+		SigmaepsQ[2,2] <- 0.0001
 		mu0[] <- NA
 		muchange[] <- NA
 		Sigmaepsmu[] <- 0
 		diag(Sigmaepsmu) <- NA
-		Sigmamu[] <- NA
+		if( between.mu ) Sigmamu[] <- NA
 
 
 		### determine structure type for model parameters: free, fixed, mixed (free parameters and fixed values)
@@ -156,12 +167,21 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 			type <- NULL
 		}
 		# structure dimensions (symbolic)
-		structure.dim          <- c( "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,F] A0", "matrix[F,F] Achange", "matrix[F*F,F*F] SigmaepsA", "cov_matrix[F] Q0", "cov_matrix[F] Qchange", "matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ", "matrix[F,1] mu0", "matrix[F,1] muchange", "matrix[F,F] Sigmaepsmu", "matrix[F,F] Sigmamu" )
-		names( structure.dim ) <- c( "Delta"            , "Sigmaeps"              , "A0"            , "Achange"            , "SigmaepsA"                , "Q0"              , "Qchange"              , "SigmaepsQ"                            , "mu0"            , "muchange"            , "Sigmaepsmu"            , "Sigmamu"             )
+		structure.dim          <- c( "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,F] A0", "matrix[F,F] Achange", "matrix[F*F,F*F] SigmaepsA", "cov_matrix[F] Q0", "cov_matrix[F] Qchange", "matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ", "matrix[F,1] mu0", "matrix[F,1] muchange", "matrix[F,F] Sigmaepsmu" )
+		names( structure.dim ) <- c( "Delta"            , "Sigmaeps"              , "A0"            , "Achange"            , "SigmaepsA"                , "Q0"              , "Qchange"              , "SigmaepsQ"                            , "mu0"            , "muchange"            , "Sigmaepsmu"             )
+
+		if( between.mu ){
+			structure.dim <- c( structure.dim, "matrix[F,F] Sigmamu" )
+			names( structure.dim ) <- c( names( structure.dim )[-length(structure.dim)], "Sigmamu" )
+		}
 		
 		# parameter labels for each mixed structure
-		par.lab.mixed.str          <- c( "lambda", "sigmaeps", "a0", "achange", "sigmaepsA", "q0", "qchange", "sigmaepsQ", "mu0", "muchange", "sigmaepsmu", "sigmamu" )
-		names( par.lab.mixed.str ) <- c( "Delta" , "Sigmaeps", "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu", "Sigmamu" )
+		par.lab.mixed.str          <- c( "lambda", "sigmaeps", "a0", "achange", "sigmaepsA", "q0", "qchange", "sigmaepsQ", "mu0", "muchange", "sigmaepsmu" )
+		names( par.lab.mixed.str ) <- c( "Delta" , "Sigmaeps", "A0", "Achange", "SigmaepsA", "Q0", "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu" )
+		if( between.mu ){
+			par.lab.mixed.str <- c( par.lab.mixed.str, "sigmamu" )
+			names( par.lab.mixed.str ) <- c( names( par.lab.mixed.str )[-length(par.lab.mixed.str)], "Sigmamu" )
+		}
 
 		# get parameters of mixed structures
 		parameters.of.mixed.structures <- character(0)
@@ -312,7 +332,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		x <- c( x, paste0( "  real epsAt[F*F,1,Tunique];" ) )
 		x <- c( x, paste0( "  real epsQt[F*(F+1)/2,1,Tunique];" ) )
 		x <- c( x, paste0( "  real epsmut[F,1,Tunique];" ) )
-		x <- c( x, paste0( "  real muj[F,1,N];" ) )
+		if( between.mu ) x <- c( x, paste0( "  real muj[F,1,N];" ) )
 
 		# end parameters
 		x <- c( x, paste0( "}" ) )
@@ -337,7 +357,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsAChol = cholesky_decompose( SigmaepsA );" ) )
 		x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQChol = cholesky_decompose( SigmaepsQ );" ) )
 		x <- c( x, paste0( "  matrix[F,F] SigmaepsmuChol = cholesky_decompose( Sigmaepsmu );" ) )
-		x <- c( x, paste0( "  matrix[F,F] SigmamuChol = cholesky_decompose( Sigmamu );" ) )
+		if( between.mu ) x <- c( x, paste0( "  matrix[F,F] SigmamuChol = cholesky_decompose( Sigmamu );" ) )
 		x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
 		# At, Qt, mut
 		x <- c( x, paste0( "  // time-varying drift/diffusion/mu" ) )
@@ -361,7 +381,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 							# x <- c( x, paste0( "        print( Qt[,,p] );" ) )
 		x <- c( x, paste0( "  }" ) )
 		# Ajp, Qjp, mujp
-		x <- c( x, paste0( "  // Ajp, Qjp, mujp" ) )
+		x <- c( x, paste0( "  // Ajp, Qjp ", ifelse( between.mu, ", mujp", "" ) ) )
 		for( i in 1:length(uniqueTj) ){
 			# x <- c( x, paste0( "  real ",c('AjpT','QjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i]-1,"];" ) )
 			x <- c( x, paste0( "  real ",c('AjpT','QjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];" ) )
@@ -382,7 +402,11 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      for (i in 1:F){" ) )
 			x <- c( x, paste0( "        // Eq. 11" ) )
-			x <- c( x, paste0( "        mujpT",uniqueTj[i],"[i,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (  to_vector( mut[,1,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]] ) + to_vector( muj[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),"] )  )[i];" ) )
+			if( between.mu ) {
+				x <- c( x, paste0( "        mujpT",uniqueTj[i],"[i,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (  to_vector( mut[,1,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]] ) + to_vector( muj[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),"] )  )[i];" ) )
+			} else {
+				x <- c( x, paste0( "        mujpT",uniqueTj[i],"[i,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (  to_vector( mut[,1,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]] ) )[i];" ) )
+			}
 			x <- c( x, paste0( "      }" ) )
 			
 			x <- c( x, paste0( "    }" ) )
@@ -460,11 +484,11 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		x <- c( x, paste0( "    // epsmut, Eq. 10" ) )		
 		x <- c( x, paste0( "    to_vector( epsmut[,1,p] ) ~ multi_normal_cholesky( to_vector(zerovecF)   , SigmaepsmuChol );" ) )
 		x <- c( x, paste0( "  }" ) )
-		x <- c( x, paste0( "  // ##### person-specific deviation from mean ################################################################" ) )		
-		x <- c( x, paste0( "  for( j in 1:N ){" ) )
-		x <- c( x, paste0( "    // muj, Eq. 8" ) )
-		x <- c( x, paste0( "    to_vector( muj[,1,j] ) ~ multi_normal_cholesky( to_vector(zerovecF), SigmamuChol );" ) )
-		x <- c( x, paste0( "  }" ) )
+		if( between.mu ) x <- c( x, paste0( "  // ##### person-specific deviation from mean ################################################################" ) )		
+		if( between.mu ) x <- c( x, paste0( "  for( j in 1:N ){" ) )
+		if( between.mu ) x <- c( x, paste0( "    // muj, Eq. 8" ) )
+		if( between.mu ) x <- c( x, paste0( "    to_vector( muj[,1,j] ) ~ multi_normal_cholesky( to_vector(zerovecF), SigmamuChol );" ) )
+		if( between.mu ) x <- c( x, paste0( "  }" ) )
 		x <- c( x, paste0( "  // ##### loops over person groups with same number of time points T #########################################" ) )
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  // #",i,"# loop over time points of persons with T=",uniqueTj[i] ) )
@@ -531,7 +555,9 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		starting.values[grepl("^lambda.*$", names( starting.values ) )] <- 1
 		starting.values[grepl("^sigmaeps[[:digit:]]+.*$", names( starting.values ) )] <- diag( keep.fixed$Sigmaeps )
 		starting.values[grepl("^sigmaepsA[[:digit:]]+.*$", names( starting.values ) )] <- diag( keep.fixed$SigmaepsA )
-		starting.values[grepl("^sigmaepsQ[[:digit:]]+.*$", names( starting.values ) )] <- diag( keep.fixed$SigmaepsQ )
+		# starting.values[grepl("^sigmaepsQ[[:digit:]]+.*$", names( starting.values ) )] <- diag( keep.fixed$SigmaepsQ )
+		# MH 0.0.26 2024-05-04 variance of Q-covariance errors now 0,  something wrong with length of diag( keep.fixed$SigmaepsQ ), therefore set to 0
+		starting.values[grepl("^sigmaepsQ[[:digit:]]+.*$", names( starting.values ) )] <- 0.0025
 		starting.values[grepl("^sigmaepsmu[[:digit:]]+.*$", names( starting.values ) )] <- diag( keep.fixed$Sigmaepsmu )
 		
 		# if( length( parameters.of.mixed.structures ) > 0 ){		
@@ -557,16 +583,18 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", verbo
 		diag( A0 ) <- -0.75
 		Achange <- keep.fixed$Achange
 		Achange[] <- 0
-		Sigmamu <- keep.fixed$Sigmamu
-		Sigmamu[] <- 0
-		diag( Sigmamu ) <- 1
+		if( between.mu ) {
+			Sigmamu <- keep.fixed$Sigmamu
+			Sigmamu[] <- 0
+			diag( Sigmamu ) <- 1
+		}
 		sigmaepsA.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsA.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsA.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 		sigmaepsQ.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsQ.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsQ.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 		sigmaepsmu.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsmu.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsmu.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 		sigmaeps.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaeps[[:digit:]]+.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaeps[[:digit:]]+.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 		lambda.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^lambda[[:digit:]]+.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^lambda[[:digit:]]+.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 
-		init_fun <- eval(parse(text=paste0( "function(...) c( list( 'epsAt'=epsAt, 'epsQt'=epsQt, 'A0'=A0, 'Achange'=Achange, 'Q0'=Q0, 'Qchange'=Qchange, 'Sigmamu'=Sigmamu,",sigmaepsA.sv,", ",sigmaepsQ.sv,", ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," ) )" )))
+		init_fun <- eval(parse(text=paste0( "function(...) c( list( 'epsAt'=epsAt, 'epsQt'=epsQt, 'A0'=A0, 'Achange'=Achange, 'Q0'=Q0, 'Qchange'=Qchange, ",ifelse( between.mu, "'Sigmamu'=Sigmamu, ", ""),sigmaepsA.sv,", ",sigmaepsQ.sv,", ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," ) )" )))
 	
 
 	# return

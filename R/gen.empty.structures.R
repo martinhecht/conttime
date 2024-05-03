@@ -12,6 +12,10 @@
 ## Function definition
 gen.empty.structures <- function( env, verbose=FALSE ){
 		
+		# trigger for no between-(co)variances in mu
+		between.mu <- FALSE
+		# between.mu <- TRUE
+		
 		### based on tvct_v1.pdf (2024-04-04)
 
 		# put all relevant elements needed to generate structures from environment here
@@ -53,7 +57,8 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 		
 		### model-related structures
 		## F x F structures
-		FxF.names <- c( "A0","Achange","Q0","Qchange","Sigmamu","Sigmaepsmu" )
+		FxF.names <- c( "A0","Achange","Q0","Qchange","Sigmaepsmu" )
+		if( between.mu ) FxF.names <- c( FxF.names, "Sigmamu" )
 		eval( parse( text = paste0( FxF.names, " <- array( as.numeric(NA), dim=c(F,F) )" ) ) )
 		# identity matrix
 		IF <- diag( F )
@@ -79,8 +84,12 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 		Fx1.names <- c(Fx1.names1,Fx1.names2)
 
 		## F x 1 x N structures
-		Fx1xN.names <- c( "muj" )
-		eval( parse( text = paste0( Fx1xN.names, " <- array( as.numeric(NA), dim=c(F,1,N) )" ) ) )
+		if( between.mu ){
+			Fx1xN.names <- c( "muj" )
+			eval( parse( text = paste0( Fx1xN.names, " <- array( as.numeric(NA), dim=c(F,1,N) )" ) ) )
+		} else {
+			Fx1xN.names <- NULL
+		}
 		
 		## F x 1 x N x T structures
 		Fx1xNxT.names <- c( "thetajp","omegajp","mujp" ) # "epsmujp"
@@ -171,7 +180,9 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 		## special structures
 		S3 <- NULL
 		# S3 for F=2
-		if( F==2 ) S3 <- matrix( c(1,0,0,0,  0,1,1,0,  0,0,0,1), nrow=F^2, ncol=F*(F+1)/2 )
+		# if( F==2 ) S3 <- matrix( c(1,0,0,0,  0,1,1,0,  0,0,0,1), nrow=F^2, ncol=F*(F+1)/2 )
+		# MH 0.0.26 2024-05-04 no errors of Q-covariance
+		if( F==2 ) S3 <- matrix( c(1,0,0,0,  0, 0,0, 0,  0,0,0,1), nrow=F^2, ncol=F*(F+1)/2 )
 		special.names <- "S3"
 		
 		# environment

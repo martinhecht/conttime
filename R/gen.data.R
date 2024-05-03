@@ -12,6 +12,11 @@
 ## Function definition
 gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 
+		# trigger for no between-(co)variances in mu
+		between.mu <- FALSE
+		# between.mu <- TRUE
+
+
 		### based on tvct_v1.pdf (2024-04-04)
 
 		# require packages
@@ -41,7 +46,7 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		mu0         <- get('mu0'        , envir=str.env, inherits=FALSE)
 		muchange    <- get('muchange'   , envir=str.env, inherits=FALSE)
 		Sigmaepsmu  <- get('Sigmaepsmu' , envir=str.env, inherits=FALSE)
-		Sigmamu     <- get('Sigmamu'    , envir=str.env, inherits=FALSE)
+		if( between.mu ) Sigmamu     <- get('Sigmamu'    , envir=str.env, inherits=FALSE)
 		Delta       <- get('Delta'      , envir=str.env, inherits=FALSE)
 		Sigmaeps    <- get('Sigmaeps'   , envir=str.env, inherits=FALSE)
 		epsAt       <- get('epsAt'      , envir=str.env, inherits=FALSE)
@@ -50,7 +55,7 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		Qt          <- get('Qt'         , envir=str.env, inherits=FALSE)
 		epsmut      <- get('epsmut'     , envir=str.env, inherits=FALSE)
 		mut         <- get('mut'        , envir=str.env, inherits=FALSE)
-		muj         <- get('muj'        , envir=str.env, inherits=FALSE)
+		if( between.mu ) muj         <- get('muj'        , envir=str.env, inherits=FALSE)
 		Ajp         <- get('Ajp'        , envir=str.env, inherits=FALSE)
 		Qjp         <- get('Qjp'        , envir=str.env, inherits=FALSE)
 		mujp        <- get('mujp'       , envir=str.env, inherits=FALSE)
@@ -94,7 +99,9 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		
 		A0[] <- 0.1
 		diag( A0 ) <- -0.75
-		Q0[] <- 0.25
+		# Q0[] <- 0.25
+		# MH 0.0.24 2024-05-03 Q0 covariance now 0
+		Q0[] <- 0
 		diag( Q0 ) <- 1
 		mu0[] <- 0
 		
@@ -122,14 +129,18 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		# muchange[2] <- c(0 , 0.1 , 0.2 , 0.3 )
 		# muchange <- muchange*0.5
 
-		Sigmamu[] <- 0
-		diag( Sigmamu ) <- 1
+		if( between.mu ){
+			Sigmamu[] <- 0
+			diag( Sigmamu ) <- 1
+		}
 
 		# error covariance matrices
 		SigmaepsA[] <- 0
 		diag( SigmaepsA ) <- 0.0025
 		SigmaepsQ[] <- 0
 		diag( SigmaepsQ ) <- 0.0025
+		# MH 0.0.26 2024-05-04 variance of Q-covariance errors now 0
+		SigmaepsQ[2,2] <- 0.0001
 		Sigmaepsmu[] <- 0
 		diag( Sigmaepsmu ) <- 0.0025		
 
@@ -166,12 +177,16 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		# individualization
 		for( j in 1:N ){
 			# muj, Eq. 8
-			muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu )
+			if( between.mu ){ muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu ) } 
 			for( p in 1:Tj[j] ){
 				# Eq. 11
 				Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]
 				Qjp[,,j,p] <- Qt[,,ptuniquejp[j,p]]
-				mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
+				if( between.mu ){
+					mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
+				} else {
+					mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]]
+				}
 				# Ahash, Eq. 14
 				Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
 				# Sigmaw, Eq. 14
