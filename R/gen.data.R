@@ -101,8 +101,15 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		diag( A0 ) <- -0.75
 		# Q0[] <- 0.25
 		# MH 0.0.24 2024-05-03 Q0 covariance now 0
+		# Q0[] <- 0
+		# diag( Q0 ) <- 1
+		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
+		# Q0[] <- 0.25
+		# MH 0.0.28 2024-05-04 Q covariance fixed to 0
 		Q0[] <- 0
 		diag( Q0 ) <- 1
+
+
 		mu0[] <- 0
 		
 		if( defaults %in% 1 ){
@@ -166,12 +173,16 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 			epsAt[,,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
 			At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) ) )
 			# Eq. 3
-			epsQt[,,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
-			Qt[,,p] <- irow( S1 %*% row( Q0 + Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) )
+			# epsQt[,,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
+			# Qt[,,p] <- irow( S1 %*% row( Q0 + Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) )
+			# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
+			Qt[,,p] <- Q0
 			# Eq. 10
-			epsmut[,1,p] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmaepsmu )
+			# epsmut[,1,p] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmaepsmu )
 			# Eq. 9
-			mut[,1,p] <- mu0 + muchange*tunique[p] + as.matrix( epsmut[,1,p,drop=FALSE] )
+			# mut[,1,p] <- mu0 + muchange*tunique[p] + as.matrix( epsmut[,1,p,drop=FALSE] )
+			# 0.0.29 2024-05-06, no mean
+			# mut[,1,p] <- mu0 + muchange*tunique[p] + as.matrix( epsmut[,1,p,drop=FALSE] )
 		}
 		
 		# individualization
@@ -182,11 +193,12 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 				# Eq. 11
 				Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]
 				Qjp[,,j,p] <- Qt[,,ptuniquejp[j,p]]
-				if( between.mu ){
-					mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
-				} else {
-					mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]]
-				}
+				# 0.0.29 2024-05-06, no mean
+				# if( between.mu ){
+					# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
+				# } else {
+					# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]]
+				# }
 				# Ahash, Eq. 14
 				Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
 				# Sigmaw, Eq. 14
@@ -205,12 +217,16 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 
 		for( j in 1:N ){
 			# theta, first time point, Eq. 17
-			thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,1,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
+			# thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,1,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
+			# 0.0.29 2024-05-06, no mean
+			thetajp[,1,j,1] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmawjp[,,j,1] )
 			for( p in 2:Tj[j] ){
 				# omegajp, Eq. 15
 				omegajp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=Qstarjp[,,j,p-1] )
 				# thetajp, Eq. 16
-				thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + ( IF - Astarjp[,,j,p-1] ) %*% as.matrix( mujp[,1,j,p,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
+				# thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + ( IF - Astarjp[,,j,p-1] ) %*% as.matrix( mujp[,1,j,p,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
+				# 0.0.29 2024-05-06, no mean
+				thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
 			}
 		}
 		
@@ -219,7 +235,9 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 				# measurement error, Eq. 19
 				epsjp[,1,j,p] <- rmvnorm( 1, mean=zerovecI, sigma=Sigmaeps )
 				# responses, Eq. 18
-				yjp[,1,j,p] <- Delta %*% as.matrix( thetajp[,1,j,p,drop=FALSE] ) + as.matrix( epsjp[,1,j,p,drop=FALSE] )
+				# yjp[,1,j,p] <- Delta %*% as.matrix( thetajp[,1,j,p,drop=FALSE] ) + as.matrix( epsjp[,1,j,p,drop=FALSE] )
+				# MH 0.0.29 2024-05-06, no measurement model
+				yjp[,1,j,p] <- as.matrix( thetajp[,1,j,p,drop=FALSE] )
 			}
 		}
 

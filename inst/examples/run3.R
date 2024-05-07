@@ -6,7 +6,7 @@ require( rstan )
 # options( mc.cores = (parallel::detectCores()-1) )
 options( mc.cores = 1 ); rstan_options(auto_write = TRUE)
 
-library( conttime ) # 0.0.26 2024-05-04
+library( conttime ) # 0.0.29 2024-05-06
 
 ### development
 # library( mvtnorm )
