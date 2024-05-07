@@ -10,7 +10,7 @@
 #' @return
 
 ## Function definition
-gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
+gen.data <- function( design.env, seed="random", defaults=c(1), value.env=NULL, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
@@ -97,27 +97,52 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 
 		### default values for model parameters ###
 		
-		A0[] <- 0.1
-		diag( A0 ) <- -0.75
 		# Q0[] <- 0.25
 		# MH 0.0.24 2024-05-03 Q0 covariance now 0
 		# Q0[] <- 0
 		# diag( Q0 ) <- 1
 		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 		# Q0[] <- 0.25
-		# MH 0.0.28 2024-05-04 Q covariance fixed to 0
-		Q0[] <- 0
-		diag( Q0 ) <- 1
 
-
-		mu0[] <- 0
+		# mu0[] <- 0
 		
 		if( defaults %in% 1 ){
+			A0[] <- 0.1
+			diag( A0 ) <- -0.75
+
 			Achange[] <- 0
 			diag( Achange ) <- 0
-			Qchange[] <- 0
-			diag( Qchange ) <- 0
-			muchange[]  <- 0
+
+			# MH 0.0.28 2024-05-04 Q covariance fixed to 0
+			Q0[] <- 0
+			diag( Q0 ) <- 1
+			
+			# Qchange[] <- 0
+			# diag( Qchange ) <- 0
+			# muchange[]  <- 0
+
+			if( between.mu ){
+				Sigmamu[] <- 0
+				diag( Sigmamu ) <- 1
+			}
+
+		}
+		
+		# get elements of values.env and overwrite defaults
+		if( !is.null( value.env ) ){
+			if( "A0"      %in% ls(envir=value.env) )      A0      <- get('A0'         , envir=value.env, inherits=FALSE)
+			if( "Achange" %in% ls(envir=value.env) )      Achange <- get('Achange'    , envir=value.env, inherits=FALSE)
+			if( "Q0"      %in% ls(envir=value.env) )      Q0      <- get('Q0'         , envir=value.env, inherits=FALSE)
+		}
+		
+		if( verbose ){
+			cat( paste0( "values used for data generation:\n" ) )
+			cat( paste0( "A0:\n" ) )
+			print( A0 )
+			cat( paste0( "Achange:\n" ) )
+			print( Achange )
+			cat( paste0( "Q0:\n" ) )
+			print( Q0 )
 		}
 		
 		# Achange[1,1] <- c(0 , 0.020 , 0.030 , 0.040 )
@@ -136,33 +161,28 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		# muchange[2] <- c(0 , 0.1 , 0.2 , 0.3 )
 		# muchange <- muchange*0.5
 
-		if( between.mu ){
-			Sigmamu[] <- 0
-			diag( Sigmamu ) <- 1
-		}
-
 		# error covariance matrices
-		SigmaepsA[] <- 0
-		diag( SigmaepsA ) <- 0.0025
-		SigmaepsQ[] <- 0
-		diag( SigmaepsQ ) <- 0.0025
+		# SigmaepsA[] <- 0
+		# diag( SigmaepsA ) <- 0.0025
+		# SigmaepsQ[] <- 0
+		# diag( SigmaepsQ ) <- 0.0025
 		# MH 0.0.26 2024-05-04 variance of Q-covariance errors now 0
-		SigmaepsQ[2,2] <- 0.0001
-		Sigmaepsmu[] <- 0
-		diag( Sigmaepsmu ) <- 0.0025		
+		# SigmaepsQ[2,2] <- 0.0001
+		# Sigmaepsmu[] <- 0
+		# diag( Sigmaepsmu ) <- 0.0025		
 
-		Sigmaeps[] <- 0
-		diag( Sigmaeps ) <- 0.10
+		# Sigmaeps[] <- 0
+		# diag( Sigmaeps ) <- 0.10
 
 		## Delta (default)
-		nitems.per.dim <- floor( I/F )
-		Delta[] <- 0
-		for( f in 1:F ){
-			Delta[ ((f-1)*nitems.per.dim+1):(f*nitems.per.dim) ,f] <- 1
-		}
-		if( any( rs <- rowSums( Delta ) == 0 ) ){
-			Delta[which(rs),F] <- 1
-		}
+		# nitems.per.dim <- floor( I/F )
+		# Delta[] <- 0
+		# for( f in 1:F ){
+			# Delta[ ((f-1)*nitems.per.dim+1):(f*nitems.per.dim) ,f] <- 1
+		# }
+		# if( any( rs <- rowSums( Delta ) == 0 ) ){
+			# Delta[which(rs),F] <- 1
+		# }
 
 
 		### data generation ###
@@ -170,8 +190,10 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		# time-varying parameters
 		for( p in 1:Tunique ){
 			# Eq. 2
-			epsAt[,,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
-			At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) ) )
+			# MH 0.0.30 2024-05-07, no epsAt
+			# epsAt[,,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
+			# At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) ) )
+			At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] ) ) ) )
 			# Eq. 3
 			# epsQt[,,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
 			# Qt[,,p] <- irow( S1 %*% row( Q0 + Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) )
@@ -233,7 +255,7 @@ gen.data <- function( defaults=c(1), design.env, seed="random", verbose=FALSE ){
 		for( j in 1:N ){
 			for( p in 1:Tj[j] ){
 				# measurement error, Eq. 19
-				epsjp[,1,j,p] <- rmvnorm( 1, mean=zerovecI, sigma=Sigmaeps )
+				# epsjp[,1,j,p] <- rmvnorm( 1, mean=zerovecI, sigma=Sigmaeps )
 				# responses, Eq. 18
 				# yjp[,1,j,p] <- Delta %*% as.matrix( thetajp[,1,j,p,drop=FALSE] ) + as.matrix( epsjp[,1,j,p,drop=FALSE] )
 				# MH 0.0.29 2024-05-06, no measurement model

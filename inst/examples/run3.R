@@ -6,24 +6,33 @@ require( rstan )
 # options( mc.cores = (parallel::detectCores()-1) )
 options( mc.cores = 1 ); rstan_options(auto_write = TRUE)
 
-library( conttime ) # 0.0.29 2024-05-06
+# library( conttime ) # 0.0.30 2024-05-07
 
 ### development
-# library( mvtnorm )
-# library( expm )
-# user.profile <- shell( "echo %USERPROFILE%", intern=TRUE )
-# Rfiles.folder <- file.path( user.profile,
-                                    # "Dropbox/139_conttime/conttime/R" )
-# Rfiles <- list.files( Rfiles.folder , pattern="*.R" )
-# Rfiles <- Rfiles[ !Rfiles %in% c("") ]
-# for( Rfile in Rfiles ){
-	# source( file.path( Rfiles.folder, Rfile ) )
-# }
+library( mvtnorm )
+library( expm )
+user.profile <- shell( "echo %USERPROFILE%", intern=TRUE )
+Rfiles.folder <- file.path( user.profile,
+                                    "Dropbox/139_conttime/conttime/R" )
+Rfiles <- list.files( Rfiles.folder , pattern="*.R" )
+Rfiles <- Rfiles[ !Rfiles %in% c("") ]
+for( Rfile in Rfiles ){
+	source( file.path( Rfiles.folder, Rfile ) )
+}
 
 design.env <- gen.design()
 # design.env <- gen.design(N=100,T=10,Tdiv=-2)
-data.env <- gen.data( design.env=design.env )
-stn <- gen.stan( data.env=data.env )
+# A0 <- matrix( c(-0.80,0,0,-0.80), 2, 2 )
+# value.env <- new.env()
+# assign( "A0", A0, envir = value.env, inherits = FALSE, immediate=TRUE )
+
+data.env <- gen.data( design.env=design.env, value.env=NULL )
+
+# A0 <- matrix( c(-0.75,0,0,-0.75), 2, 2 )
+# sv.env <- new.env()
+# assign( "A0", A0, envir = sv.env, inherits = FALSE, immediate=TRUE )
+
+stn <- gen.stan( data.env=data.env, start.values.env=sv.env )
 
                               
 start <- Sys.time()
