@@ -183,6 +183,8 @@ gen.empty.structures <- function( env, verbose=FALSE ){
 		# if( F==2 ) S3 <- matrix( c(1,0,0,0,  0,1,1,0,  0,0,0,1), nrow=F^2, ncol=F*(F+1)/2 )
 		# MH 0.0.26 2024-05-04 no errors of Q-covariance
 		if( F==2 ) S3 <- matrix( c(1,0,0,0,  0, 0,0, 0,  0,0,0,1), nrow=F^2, ncol=F*(F+1)/2 )
+		# MH 0.0.35 S3 not needed anymore, set to arbitrary value (so that it does not crash)
+		S3 <- matrix( 1, nrow=F^2, ncol=F*(F+1)/2 )
 		special.names <- "S3"
 		
 		# environment

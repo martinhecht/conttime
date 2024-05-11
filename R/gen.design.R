@@ -15,7 +15,7 @@ gen.design <- function( F=2, I=F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", ve
 		### based on tvct_v1.pdf (2024-04-04)
 
 		# checks
-		if( ! (F == 2) ) stop( paste0( "F = ", F, " is not supported, currently only F=2 is available" ) )
+		# if( ! (F == 2) ) stop( paste0( "F = ", F, " is not supported, currently only F=2 is available" ) )
 
 		# create new environment
 		temp.env <- new.env()

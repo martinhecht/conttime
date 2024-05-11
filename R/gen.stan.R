@@ -61,7 +61,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# Sigmaeps    <- get('Sigmaeps'   , envir=data.env, inherits=FALSE)
 
 		# additional.structures <- c( "epsAt", "At", "epsQt", "Qt", "epsmut", "mut", "muj", "Ajp", "Qjp", "mujp", "Ahashjp", "Sigmawjp", "Astarjp", "Qstarjp", "thetajp", "omegajp", "epsjp", "zerovecF", "zerovecF2", "zerovecFF12", "zerovecI", "IF", "IF2", "S1", "S2", "S3"
-		additional.structures <- c( "IF", "IF2", "S1", "S2", "S3", "zerovecF", "zerovecF2", "zerovecFF12" )
+		additional.structures <- c( "IF", "IF2", "S1", "S2", "zerovecF", "zerovecF2", "zerovecFF12" ) # , "S3"
 		# epsAt       <- get('epsAt'      , envir=data.env, inherits=FALSE)
 		# At          <- get('At'         , envir=data.env, inherits=FALSE)
 		# epsQt       <- get('epsQt'      , envir=data.env, inherits=FALSE)
@@ -87,7 +87,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		IF2         <- get('IF2'        , envir=data.env, inherits=FALSE)
 		S1          <- get('S1'         , envir=data.env, inherits=FALSE)
 		S2          <- get('S2'         , envir=data.env, inherits=FALSE)
-		S3          <- get('S3'         , envir=data.env, inherits=FALSE)
+		# S3          <- get('S3'         , envir=data.env, inherits=FALSE)
 
 		# ids (j) need to be sorted by number of time points
 		# resort.ind <- do.call( "c", sapply( unique( sort( Tj ) ), function( T ) which( Tj %in% T ), simplify=FALSE ) )
@@ -152,9 +152,10 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# Q0[] <- 0
 		# diag(Q0) <- NA
 		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
-		Q0[] <- NA
+		Q0[] <- 0
+		diag(Q0) <- NA
 		# MH 0.0.28 2024-05-04 Q covariance fixed to 0
-		Q0[1,2] <- Q0[2,1] <- 0
+		# Q0[1,2] <- Q0[2,1] <- 0
 		# MH 0.0.25 2024-05-03 Qchange covariance now 0
 		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 		# Qchange[] <- 0
@@ -293,7 +294,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		x <- c( x, paste0( "  matrix[F*F,F*F] IF2;        // identity matrix of size ", F^2 ) )
 		x <- c( x, paste0( "  matrix[F*F,F*F] S1;         // selection matrix 1" ) )
 		x <- c( x, paste0( "  matrix[F*F,F*F] S2;         // selection matrix 2" ) )
-		x <- c( x, paste0( "  matrix[F*F,F*(F+1)/2] S3;   // selection matrix 3" ) )
+		# x <- c( x, paste0( "  matrix[F*F,F*(F+1)/2] S3;   // selection matrix 3" ) )
 		x <- c( x, paste0( "  matrix[F,1] zerovecF;       // zero column vector of size ", F ) )
 		x <- c( x, paste0( "  matrix[F*F,1] zerovecF2;    // zero column vector of size ", F^2 ) )
 		x <- c( x, paste0( "  matrix[F*(F+1)/2,1] zerovecFF12;  // zero column vector of size ", F*(F+1)/2 ) )
@@ -662,7 +663,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		invisible( if( file.exists( rds.path ) ) file.remove( rds.path ) )
 
 		## data
-		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "tunique"=tunique, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum, "IF"=IF, "IF2"=IF2, "S1"=S1, "S2"=S2, "S3"=S3, "zerovecF"=zerovecF, "zerovecF2"=zerovecF2, "zerovecFF12"=zerovecFF12 )
+		dat <- list( "F"=F, "I"=I, "N"=N, "T"=T, "tunique"=tunique, "Tunique"=Tunique, "Tj"=Tj, "Tjn"=as.integer(Tjn), "Tjlow"=Tjlow, "Tjup"=Tjup, "NperT"=NperT, "NperTcum"=NperTcum, "IF"=IF, "IF2"=IF2, "S1"=S1, "S2"=S2, "zerovecF"=zerovecF, "zerovecF2"=zerovecF2, "zerovecFF12"=zerovecFF12 ) # "S3"=S3,
 		# yjpT, deltajpT, ptuniquejpT
 		dat <- c( dat, yjpT, deltajpT, ptuniquejpT ) # , AjpT, QjpT, mujpT,
 		# add fixed structures
