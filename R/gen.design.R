@@ -10,7 +10,7 @@
 #' @return
 
 ## Function definition
-gen.design <- function( F=2, I=2*F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", verbose=FALSE ){
+gen.design <- function( F=2, I=F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", verbose=FALSE ){
 		
 		### based on tvct_v1.pdf (2024-04-04)
 

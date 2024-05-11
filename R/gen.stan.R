@@ -11,11 +11,12 @@
 
 
 ## Function definition
-gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start.values.env=NULL, verbose=TRUE ){
+gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start.values.env=NULL, KF=FALSE, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
 		# between.mu <- TRUE
+
 
 		### based on tvct_v1.pdf (2024-04-04)
 		
@@ -36,6 +37,9 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		ptuniquejp  <- get('ptuniquejp' , envir=data.env, inherits=FALSE)
 		deltajp     <- get('deltajp'    , envir=data.env, inherits=FALSE)
 		yjp         <- get('yjp'        , envir=data.env, inherits=FALSE)
+
+		# no measurement model: F must be I
+		if( F!=I ) stop( paste0( "F = ", F , " is NOT equal to I = ", I , " (this is required for no measurement model)" ) )
 
 		model.parameters <- c( "A0", "Achange", "Q0" ) # "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu",  "Delta", "Sigmaeps", "SigmaepsA"
 		if( between.mu ) model.parameters <- c( model.parameters, "Sigmamu" )
@@ -323,9 +327,16 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		
 		## parameters
 		x <- c( x, paste0( "parameters {" ) )
-		# latent values of persons with same number of time points
-		for( i in 1:length(uniqueTj) ){
-			x <- c( x, paste0( "  real thetajpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"]; // latent values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		if( !KF ){
+			# latent values of persons with same number of time points
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real thetajpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"]; // latent values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			}
+		}
+		if( KF ){ # different structure for first time point, because first time point is still sampled in KF
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real thetajpFirstTimepointT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",1]; // latent values at first time point of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			}
 		}
 		# free structures go in as parameters
 		if( length( wifres <- which( structure.type %in% "free" ) ) > 0 ){
@@ -376,11 +387,13 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# x <- c( x, paste0( "  matrix[F*F,F*F] SigmaepsAChol = cholesky_decompose( SigmaepsA );" ) )
 		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 		# x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQChol = cholesky_decompose( SigmaepsQ );" ) )
+		# MH 0.0.32 2024-05-10 no measurement model, both for Kalman Filter and regular estimation: set to small value
+		x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = diag_matrix(rep_vector(1e-10, I));" ) )
 		# 0.0.29 2024-05-06, no mean
 		# x <- c( x, paste0( "  matrix[F,F] SigmaepsmuChol = cholesky_decompose( Sigmaepsmu );" ) )
 		if( between.mu ) x <- c( x, paste0( "  matrix[F,F] SigmamuChol = cholesky_decompose( Sigmamu );" ) )
-		# 0.0.29 2024-05-06, no measurement model
-		# x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
+		# 0.0.29 2024-05-06, no measurement model <=== yjpT needs to be in, so no measurement model rather means setting measurement error to zero
+		x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
 		# At, Qt, mut
 		x <- c( x, paste0( "  // time-varying drift/diffusion/mu" ) )
 		x <- c( x, paste0( "  real At[F,F,Tunique];  // time-varying drift matrices" ) )
@@ -505,7 +518,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		
 		## model
 		x <- c( x, paste0( "model {" ) )
-		x <- c( x, paste0( "  // ##### errors of time-varying parameters ##################################################################" ) )
+		# x <- c( x, paste0( "  // ##### errors of time-varying parameters ##################################################################" ) )
 		# x <- c( x, paste0( "  for( p in 1:Tunique ){" ) )
 		# MH 0.0.30 2024-05-07, no epsAt
 		# x <- c( x, paste0( "    // epsAt, Eq. 4" ) )
@@ -530,21 +543,31 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 								# x <- c( x, paste0( "        print( \"Sigmawjp: \", to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]) );" ) )
 			# x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
 			# 0.0.29 2024-05-06, no mean
-			x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(zerovecF),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
-			x <- c( x, paste0( "    // loop beginning at second time points" ) )
-			x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
-			x <- c( x, paste0( "      // time series, Eq. 15/16 " ) )
-								# x <- c( x, paste0( "        print( \"QstarjpT: \", to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) );" ) )
-			# x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])+(IF - to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]))*to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),to_matrix(QstarjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
-			# 0.0.29 2024-05-06, no mean
-			x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]),to_matrix(QstarjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
-			x <- c( x, paste0( "    }" ) )
-			# 0.0.29 2024-05-06, no measurement model
-			# x <- c( x, paste0( "    // loop over all time points" ) )
-			# x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
-			# x <- c( x, paste0( "      // measurement model, Eq. 18/19 " ) )
-			# x <- c( x, paste0( "      to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky( Delta*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),SigmaepsChol);" ) )
-			# x <- c( x, paste0( "    }" ) )
+			if( !KF ) x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(zerovecF),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
+			# different structure for first time point, because first time point is still sampled in KF
+			if(  KF ) x <- c( x, paste0( "    to_vector( thetajpFirstTimepointT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(zerovecF),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
+			# MH 0.0.32 2024-05-10 Kalman Filter
+			if( !KF ){
+				x <- c( x, paste0( "    // loop beginning at second time points" ) )
+				x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
+				x <- c( x, paste0( "      // time series, Eq. 15/16 " ) )
+									# x <- c( x, paste0( "        print( \"QstarjpT: \", to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) );" ) )
+				# x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])+(IF - to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]))*to_vector(mujpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),to_matrix(QstarjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
+				# 0.0.29 2024-05-06, no mean
+				x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky(to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]),to_matrix(QstarjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]));" ) )
+				x <- c( x, paste0( "    }" ) )
+			}
+			# 0.0.29 2024-05-06, no measurement model <=== yjpT needs to be in, so no measurement model rather means setting measurement error to zero
+			if( !KF ) {
+				x <- c( x, paste0( "    // loop over all time points" ) )
+				x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
+				x <- c( x, paste0( "      // measurement model, Eq. 18/19 " ) )
+				# x <- c( x, paste0( "      to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky( Delta*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),SigmaepsChol);" ) )
+				# for no measurement model: Delta = IF
+				x <- c( x, paste0( "      to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ~ multi_normal_cholesky( IF * to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),SigmaepsChol);" ) )
+				x <- c( x, paste0( "    }" ) )
+			}			
+
 			x <- c( x, paste0( "  }" ) )
 		}
 		
@@ -561,8 +584,76 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# x <- c( x, paste0( "  Q0 ~ inv_wishart(F+3, scale_matrix_F);" ) )
 		# x <- c( x, paste0( "  Qchange ~ inv_wishart(F+3, scale_matrix_F);" ) )
 		
+		# priors
+		# x <- c( x, paste0( "  Q0[1,1] ~ inv_gamma(2, 1);" ) )
+		# x <- c( x, paste0( "  Q0[2,2] ~ inv_gamma(2, 1);" ) )
+		# x <- c( x, paste0( "  A0[1,1] ~ normal(-0.75, 0.25) T[, 0];" ) )
+		# x <- c( x, paste0( "  A0[2,2] ~ normal(-0.75, 0.25) T[, 0];" ) )
+		# x <- c( x, paste0( "  A0[1,2] ~ normal(0.1, 0.25);" ) )
+		# x <- c( x, paste0( "  A0[2,1] ~ normal(0.1, 0.25);" ) )
+		# x <- c( x, paste0( "  Achange[1,1] ~ normal(0,0.01);" ) )
+		# x <- c( x, paste0( "  Achange[2,2] ~ normal(0,0.01);" ) )
+		# x <- c( x, paste0( "  Achange[1,2] ~ normal(0,0.01);" ) )
+		# x <- c( x, paste0( "  Achange[2,1] ~ normal(0,0.01);" ) )
+
+		x <- c( x, paste0( "  // priors" ) )
+		x <- c( x, paste0( "  for (i in 1:F) {" ) )
+		x <- c( x, paste0( "    for (j in 1:F) {" ) )
+		x <- c( x, paste0( "      Achange[i,j] ~ normal(0,0.01);" ) )
+		x <- c( x, paste0( "      if (i == j) {" ) )
+		x <- c( x, paste0( "        A0[i,j] ~ normal(-0.75,0.25) T[,0];" ) )
+		x <- c( x, paste0( "        Q0[i,j] ~ inv_gamma(2,1);" ) )
+		x <- c( x, paste0( "      } else {" ) )
+		x <- c( x, paste0( "        A0[i,j] ~ normal(0.10,0.25);" ) )
+		x <- c( x, paste0( "      }" ) )
+		x <- c( x, paste0( "    }" ) )
+		x <- c( x, paste0( "  }" ) )
+		
 		# end model
 		x <- c( x, paste0( "}" ) )
+		
+		# MH 0.0.32 2024-05-10 Kalman Filter		
+		if( KF ){
+			## generated quantities
+			x <- c( x, paste0( "generated quantities {" ) )
+
+			# latent values of persons with same number of time points
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real thetajpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"]; // latent values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			}
+			x <- c( x, paste0( "  cov_matrix[F] P[T];" ) )
+			x <- c( x, paste0( "  cov_matrix[F] P_pred;" ) )
+			x <- c( x, paste0( "  matrix[F,F] K;" ) )
+			x <- c( x, paste0( "  vector[F] thetajp_pred;" ) )
+			
+			x <- c( x, paste0( "  // ##### loops over person groups with same number of time points T #########################################" ) )
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  // #",i,"# loop over time points of persons with T=",uniqueTj[i] ) )
+				x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
+				x <- c( x, paste0( "    // initial state" ) )
+				x <- c( x, paste0( "    thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = thetajpFirstTimepointT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1];" ) )
+				x <- c( x, paste0( "    // initial variance" ) )
+				x <- c( x, paste0( "    P[1] = to_matrix( SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] );" ) )
+				x <- c( x, paste0( "    // loop beginning at second time points" ) )
+				x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
+				x <- c( x, paste0( "      // time series, Eq. 15/16 " ) )
+				x <- c( x, paste0( "      // predict phase" ) )
+				# x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
+				x <- c( x, paste0( "      thetajp_pred = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) * to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
+				x <- c( x, paste0( "      P_pred = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) * P[p-1] * to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])' + to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) ;" ) )
+				x <- c( x, paste0( "      // update phase" ) )				
+				x <- c( x, paste0( "      K = P_pred * inverse( P_pred + Sigmaeps ); // Kalman gain" ) )
+				x <- c( x, paste0( "      for(k in 1:F){" ) )
+				x <- c( x, paste0( "        thetajpT",uniqueTj[i],"[k,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = ( thetajp_pred + K * to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) - thetajp_pred )[k];" ) )
+				x <- c( x, paste0( "      }" ) )				
+				x <- c( x, paste0( "      P[p] = (IF - K) * P_pred;" ) )
+				x <- c( x, paste0( "    }" ) )
+				x <- c( x, paste0( "  }" ) )
+			}
+
+			# end generated quantities
+			x <- c( x, paste0( "}" ) )
+		}
 		
 		## empty line
 		x <- c( x, paste0( "" ) )

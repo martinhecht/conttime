@@ -6,7 +6,7 @@ require( rstan )
 # options( mc.cores = (parallel::detectCores()-1) )
 options( mc.cores = 1 ); rstan_options(auto_write = TRUE)
 
-# library( conttime ) # 0.0.30 2024-05-07
+# library( conttime ) # 0.0.32 2024-05-11
 
 ### development
 library( mvtnorm )
@@ -32,7 +32,7 @@ data.env <- gen.data( design.env=design.env, value.env=NULL )
 # sv.env <- new.env()
 # assign( "A0", A0, envir = sv.env, inherits = FALSE, immediate=TRUE )
 
-stn <- gen.stan( data.env=data.env, start.values.env=sv.env )
+stn <- gen.stan( data.env=data.env, KF=TRUE ) # , start.values.env=sv.env
 
                               
 start <- Sys.time()

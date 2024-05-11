@@ -41,6 +41,8 @@ get.stan <- function( fit, stn, true.env=NULL, verbose=FALSE ){
 		# df$bias <- NA
 		# df$bias[ df$free.or.fixed %in% "free" ] <- df$mean[ df$free.or.fixed %in% "free" ] - df$true.value[ df$free.or.fixed %in% "free" ]
 		df$bias <- df$mean - df$true.value
+		df$bias.percent <- NA
+		if( any( logvec <- ( df$true.value != 0 ) ) ) df$bias.percent[logvec] <- sign( df$bias[logvec] ) * ( abs( df$bias[logvec] ) / abs( df$true.value[logvec] ) ) * 100
 	}
 	
 	# add first column with number
