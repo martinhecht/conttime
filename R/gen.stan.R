@@ -427,42 +427,59 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 							# x <- c( x, paste0( "        print( Qt[,,p] );" ) )
 		x <- c( x, paste0( "  }" ) )
 		# Ajp, Qjp, mujp
-		x <- c( x, paste0( "  // Ajp, Qjp ", ifelse( between.mu, ", mujp", "" ) ) )
-		for( i in 1:length(uniqueTj) ){
-			# x <- c( x, paste0( "  real ",c('AjpT','QjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i]-1,"];" ) )
-			x <- c( x, paste0( "  real ",c('AjpT','QjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];" ) )
-			# 0.0.29 2024-05-06, no mean
-			# x <- c( x, paste0( "  real mujpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," ") ) )
-			
-			x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
-			# x <- c( x, paste0( "    for (p in 1:(",ifelse(N>1,"Tj[j]","Tj"),"-1)){ // range: 1:",uniqueTj[i]-1 ) )
-			x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
-							# x <- c( x, paste0( "print( ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] );" ) )
-							# x <- c( x, paste0( "print( \"j: \", j );" ) )
-							# x <- c( x, paste0( "print( \"p: \", p );" ) )
-							# x <- c( x, paste0( "print( \"ptuniquejp",uniqueTj[i],": \", ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] );" ) )
-			x <- c( x, paste0( "      for (i in 1:F){" ) )
-			x <- c( x, paste0( "        for (k in 1:F){" ) )
-			x <- c( x, paste0( "          // Eq. 11" ) )
-			x <- c( x, paste0( "          ",c('AjpT','QjpT'),uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = to_matrix(",c('At','Qt'),"[,,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]])[i,k];" ) )
-			x <- c( x, paste0( "        }" ) )
-			x <- c( x, paste0( "      }" ) )
-			# x <- c( x, paste0( "      for (i in 1:F){" ) )
-			# x <- c( x, paste0( "        // Eq. 11" ) )
-			# 0.0.29 2024-05-06, no mean
-			# if( between.mu ) {
-				# x <- c( x, paste0( "        mujpT",uniqueTj[i],"[i,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (  to_vector( mut[,1,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]] ) + to_vector( muj[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),"] )  )[i];" ) )
-			# } else {
-				# x <- c( x, paste0( "        mujpT",uniqueTj[i],"[i,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (  to_vector( mut[,1,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]] ) )[i];" ) )
-			# }
-			# x <- c( x, paste0( "      }" ) )
-			
-			x <- c( x, paste0( "    }" ) )
-			x <- c( x, paste0( "  }" ) )
-							# x <- c( x, paste0( "        print( AjpT",uniqueTj[i]," );" ) )
-							# x <- c( x, paste0( "        print( QjpT",uniqueTj[i]," );" ) )
+		# x <- c( x, paste0( "  // Ajp, Qjp ", ifelse( between.mu, ", mujp", "" ) ) )
+		
+		x <- c( x, paste0( "  // Ajp, Qjp" ) )
+		if( !KF ){
+			for( i in 1:length(uniqueTj) ){
+				# x <- c( x, paste0( "  real ",c('AjpT','QjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i]-1,"];" ) )
+				x <- c( x, paste0( "  real ",c('AjpT','QjpT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];" ) )
+				# 0.0.29 2024-05-06, no mean
+				# x <- c( x, paste0( "  real mujpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"];",ifelse(T<10000,paste(rep(" ",5-nchar(as.character(uniqueTj[i]))),collapse="")," ") ) )
+				
+				x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
+				# x <- c( x, paste0( "    for (p in 1:(",ifelse(N>1,"Tj[j]","Tj"),"-1)){ // range: 1:",uniqueTj[i]-1 ) )
+				x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
+								# x <- c( x, paste0( "print( ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] );" ) )
+								# x <- c( x, paste0( "print( \"j: \", j );" ) )
+								# x <- c( x, paste0( "print( \"p: \", p );" ) )
+								# x <- c( x, paste0( "print( \"ptuniquejp",uniqueTj[i],": \", ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] );" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          // Eq. 11" ) )
+				x <- c( x, paste0( "          ",c('AjpT','QjpT'),uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = to_matrix(",c('At','Qt'),"[,,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]])[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				# x <- c( x, paste0( "      for (i in 1:F){" ) )
+				# x <- c( x, paste0( "        // Eq. 11" ) )
+				# 0.0.29 2024-05-06, no mean
+				# if( between.mu ) {
+					# x <- c( x, paste0( "        mujpT",uniqueTj[i],"[i,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (  to_vector( mut[,1,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]] ) + to_vector( muj[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),"] )  )[i];" ) )
+				# } else {
+					# x <- c( x, paste0( "        mujpT",uniqueTj[i],"[i,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (  to_vector( mut[,1,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]] ) )[i];" ) )
+				# }
+				# x <- c( x, paste0( "      }" ) )
+				
+				x <- c( x, paste0( "    }" ) )
+				x <- c( x, paste0( "  }" ) )
+								# x <- c( x, paste0( "        print( AjpT",uniqueTj[i]," );" ) )
+								# x <- c( x, paste0( "        print( QjpT",uniqueTj[i]," );" ) )
+			}
+		} else if( KF ){
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real ",c('AjpFirstTimepointT','QjpFirstTimepointT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",1];" ) )
+				x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
+				x <- c( x, paste0( "    for (p in 1:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 1:",uniqueTj[i] ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          // Eq. 11" ) )
+				x <- c( x, paste0( "          ",c('AjpFirstTimepointT','QjpFirstTimepointT'),uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = to_matrix(",c('At','Qt'),"[,,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]])[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "    }" ) )
+				x <- c( x, paste0( "  }" ) )
+			}
 		}
-
 
 		# Astarjp, Qstarjp, Sigmawjp
 		if( !KF ) {
@@ -534,19 +551,13 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 				x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
 				x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
 				x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
-				x <- c( x, paste0( "          AhashjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])))[i,k];" ) )
-				x <- c( x, paste0( "        }" ) )
-				x <- c( x, paste0( "      }" ) )
-				x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
-				x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
-				x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
-				x <- c( x, paste0( "          AhashjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])))[i,k];" ) )
+				x <- c( x, paste0( "          AhashjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = (kronecker_product(to_matrix(AjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),IF) + kronecker_product(IF,to_matrix(AjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])))[i,k];" ) )
 				x <- c( x, paste0( "        }" ) )
 				x <- c( x, paste0( "      }" ) )
 				x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
 				x <- c( x, paste0( "      for (i in 1:F){" ) )
 				x <- c( x, paste0( "        for (k in 1:F){" ) )
-				x <- c( x, paste0( "          SigmawjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])),F,F)[i,k];" ) )
+				x <- c( x, paste0( "          SigmawjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])) * flatten_matrix_rowwise(to_matrix(QjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])),F,F)[i,k];" ) )
 				x <- c( x, paste0( "        }" ) )
 				x <- c( x, paste0( "      }" ) )
 				x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
@@ -588,25 +599,34 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 			x <- c( x, paste0( "  matrix[F,F] SigmawjpChol;" ) )
 			x <- c( x, paste0( "  matrix[F,F] Qstarjp;" ) )
 			x <- c( x, paste0( "  matrix[F,F] QstarjpChol;" ) )
-			
+			x <- c( x, paste0( "  matrix[F,F] ",c('Ajp','Qjp'),";" ) )
+
 			x <- c( x, paste0( "  // ##### loops over person groups with same number of time points T #########################################" ) )
+
 			for( i in 1:length(uniqueTj) ){
 				x <- c( x, paste0( "  // #",i,"# loop over time points of persons with T=",uniqueTj[i] ) )
 				x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )
+				
 				x <- c( x, paste0( "    // initial state" ) )
 				x <- c( x, paste0( "    thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = thetajpFirstTimepointT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1];" ) )
 				x <- c( x, paste0( "    // initial variance" ) )
 				# x <- c( x, paste0( "    P[1] = to_matrix( SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] );" ) )
 				x <- c( x, paste0( "    P[1] = to_matrix( SigmawjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] );" ) )
+				
 				x <- c( x, paste0( "    // loop beginning at second time points" ) )
 				x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
-				
+
+				x <- c( x, paste0( "      // Eq. 11" ) )
+				x <- c( x, paste0( "      ",c('Ajp','Qjp')," = to_matrix(",c('At','Qt'),"[,,ptuniquejpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]]);" ) )
 				x <- c( x, paste0( "      // Astarjp, Eq. 12" ) )
-				x <- c( x, paste0( "      Astarjp = matrix_exp(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
+				# x <- c( x, paste0( "      Astarjp = matrix_exp(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
+				x <- c( x, paste0( "      Astarjp = matrix_exp( Ajp * deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
 				x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
-				x <- c( x, paste0( "      Ahashjp = kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]));" ) )
+				# x <- c( x, paste0( "      Ahashjp = kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]));" ) )
+				x <- c( x, paste0( "      Ahashjp = kronecker_product(Ajp,IF) + kronecker_product(IF,Ajp);" ) )
 				x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
-				x <- c( x, paste0( "      Sigmawjp = unflatten_vector_to_matrix(-1*inverse(Ahashjp) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F);" ) )
+				# x <- c( x, paste0( "      Sigmawjp = unflatten_vector_to_matrix(-1*inverse(Ahashjp) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F);" ) )
+				x <- c( x, paste0( "      Sigmawjp = unflatten_vector_to_matrix(-1*inverse(Ahashjp) * flatten_matrix_rowwise(Qjp) ,F,F);" ) )
 				x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
 				x <- c( x, paste0( "      SigmawjpChol = cholesky_decompose( Sigmawjp );" ) )
 				x <- c( x, paste0( "      // Qstarjp, Eq. 13" ) )
@@ -628,6 +648,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 				x <- c( x, paste0( "        thetajpT",uniqueTj[i],"[k,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = ( thetajp_pred + K * to_vector( yjpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) - thetajp_pred )[k];" ) )
 				x <- c( x, paste0( "      }" ) )				
 				x <- c( x, paste0( "      P[p] = (IF - K) * P_pred;" ) )
+				
 				x <- c( x, paste0( "    }" ) )
 				x <- c( x, paste0( "  }" ) )
 			}
