@@ -110,7 +110,11 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# number of persons per T
 		NperT <- sapply( Tj.list, length )
 		# shifted cumulated number of persons per T (starting from 0 for 1st time point)
-		NperTcum <- c( 0, cumsum( NperT )[1:(Tjn-1)] )
+		if( Tjn > 1 ){
+			NperTcum <- c( 0, cumsum( NperT )[1:(Tjn-1)] )
+		} else if ( Tjn==1 ) {
+			NperTcum <- 0
+		}
 
 		# split structure into a list with person groups with same number of time points and delete NAs due to missing time points
 		yjpT <- mapply( function( js, Tj ) yjp[,,js,1:Tj,drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
@@ -461,57 +465,110 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 
 
 		# Astarjp, Qstarjp, Sigmawjp
-		for( i in 1:length(uniqueTj) ){
-			x <- c( x, paste0( "  real ",c('AstarjpT','QstarjpT','QstarjpCholT','SigmawjpT','SigmawjpCholT'),uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		if( !KF ) {
+			nms <- c( 'AstarjpT','QstarjpT','QstarjpCholT','SigmawjpT','SigmawjpCholT')
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real ",nms,uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			}
+		} else if( KF ) {
+			nms <- c( 'QstarjpFirstTimepointT','QstarjpFirstTimepointCholT','SigmawjpFirstTimepointT','SigmawjpFirstTimepointCholT')		
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real ",nms,uniqueTj[i],"[F,F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",1]; // matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			}
 		}
 		# Ahash
-		for( i in 1:length(uniqueTj) ){
-			x <- c( x, paste0( "  real ",c('AhashjpT'),uniqueTj[i],"[F*F,F*F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // Ahash matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+		if( !KF ) {
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real ",c('AhashjpT'),uniqueTj[i],"[F*F,F*F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // Ahash matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			}
+		} else if( KF ) {
+			for( i in 1:length(uniqueTj) ){
+				x <- c( x, paste0( "  real ",c('AhashjpFirstTimepointT'),uniqueTj[i],"[F*F,F*F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",1]; // Ahash matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			}
 		}
 		# Astarjp, Qstarjp, Ahashjp, Sigmawjp
 		x <- c( x, paste0( "  // ##### loops over person groups with same number of time points T #########################################" ) )
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  // #",i,"# loop over time points of persons with T=",uniqueTj[i] ) )		
 		    x <- c( x, paste0( "  for (j in Tjlow",ifelse(Tjn>1,paste0('[',i,']'),''),":Tjup",ifelse(Tjn>1,paste0('[',i,']'),''),"){ // range: ",Tjlow[i],":",Tjup[i],", NperTcum=",NperTcum[i],", NperT=",NperT[i] ) )		
-		    x <- c( x, paste0( "    for (p in 1:(",ifelse(N>1,"Tj[j]","Tj"),"-1)){ // range: 1:",uniqueTj[i]-1 ) )
-		    x <- c( x, paste0( "      // Astarjp, Eq. 12" ) )
-		    x <- c( x, paste0( "      for (i in 1:F){" ) )
-		    x <- c( x, paste0( "        for (k in 1:F){" ) )
-		    x <- c( x, paste0( "          AstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = matrix_exp(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])[i,k];" ) )
-		    x <- c( x, paste0( "        }" ) )
-		    x <- c( x, paste0( "      }" ) )
-		    x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
-		    x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
-		    x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
-			x <- c( x, paste0( "          AhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])))[i,k];" ) )
-		    x <- c( x, paste0( "        }" ) )
-		    x <- c( x, paste0( "      }" ) )
-		    x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
-		    x <- c( x, paste0( "      for (i in 1:F){" ) )
-			x <- c( x, paste0( "        for (k in 1:F){" ) )
-		    x <- c( x, paste0( "          SigmawjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
-		    x <- c( x, paste0( "        }" ) )
-		    x <- c( x, paste0( "      }" ) )
-		    x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
-		    x <- c( x, paste0( "      for (i in 1:F){" ) )
-			x <- c( x, paste0( "        for (k in 1:F){" ) )
-		    x <- c( x, paste0( "          SigmawjpCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = cholesky_decompose( to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) )[i,k];" ) )
-		    x <- c( x, paste0( "        }" ) )
-		    x <- c( x, paste0( "      }" ) )			
-		    x <- c( x, paste0( "      // Qstarjp, Eq. 13" ) )
-		    x <- c( x, paste0( "      for (i in 1:F){" ) )
-			x <- c( x, paste0( "        for (k in 1:F){" ) )
-		    x <- c( x, paste0( "          QstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix( -1*( matrix_exp(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) - IF2 ) * flatten_matrix_rowwise(to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
-		    x <- c( x, paste0( "        }" ) )
-		    x <- c( x, paste0( "      }" ) )
-		    x <- c( x, paste0( "      // Qstarjp Cholesky" ) )
-		    x <- c( x, paste0( "      for (i in 1:F){" ) )
-			x <- c( x, paste0( "        for (k in 1:F){" ) )
-		    x <- c( x, paste0( "          QstarjpCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = cholesky_decompose( to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) )[i,k];" ) )
-		    x <- c( x, paste0( "        }" ) )
-		    x <- c( x, paste0( "      }" ) )			
-			x <- c( x, paste0( "    }" ) )
-		    x <- c( x, paste0( "  }" ) )
+		    if( !KF ){
+				x <- c( x, paste0( "    for (p in 1:(",ifelse(N>1,"Tj[j]","Tj"),"-1)){ // range: 1:",uniqueTj[i]-1 ) )
+				x <- c( x, paste0( "      // Astarjp, Eq. 12" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          AstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = matrix_exp(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
+				x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
+				x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
+				x <- c( x, paste0( "          AhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])))[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          SigmawjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          SigmawjpCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = cholesky_decompose( to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) )[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )			
+				x <- c( x, paste0( "      // Qstarjp, Eq. 13" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          QstarjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix( -1*( matrix_exp(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) - IF2 ) * flatten_matrix_rowwise(to_matrix(SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Qstarjp Cholesky" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          QstarjpCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = cholesky_decompose( to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) )[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )			
+				x <- c( x, paste0( "    }" ) )
+			} else if( KF ){ # outside time loop because it's just for first time point!
+				x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
+				x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
+				x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
+				x <- c( x, paste0( "          AhashjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])))[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
+				x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
+				x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
+				x <- c( x, paste0( "          AhashjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])))[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          SigmawjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])),F,F)[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          SigmawjpFirstTimepointCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = cholesky_decompose( to_matrix(SigmawjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]) )[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )			
+				x <- c( x, paste0( "      // Qstarjp, Eq. 13" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          QstarjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = unflatten_vector_to_matrix( -1*( matrix_exp(to_matrix(AhashjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]) - IF2 ) * flatten_matrix_rowwise(to_matrix(SigmawjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])),F,F)[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+				x <- c( x, paste0( "      // Qstarjp Cholesky" ) )
+				x <- c( x, paste0( "      for (i in 1:F){" ) )
+				x <- c( x, paste0( "        for (k in 1:F){" ) )
+				x <- c( x, paste0( "          QstarjpFirstTimepointCholT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = cholesky_decompose( to_matrix(QstarjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]) )[i,k];" ) )
+				x <- c( x, paste0( "        }" ) )
+				x <- c( x, paste0( "      }" ) )
+			}
+			x <- c( x, paste0( "  }" ) )
 
 		}
 		# MH 0.0.32/33 2024-05-10/11 Kalman Filter		
@@ -525,6 +582,12 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 			x <- c( x, paste0( "  cov_matrix[F] P_pred;" ) )
 			x <- c( x, paste0( "  matrix[F,F] K;" ) )
 			x <- c( x, paste0( "  vector[F] thetajp_pred;" ) )
+			x <- c( x, paste0( "  matrix[F,F] Astarjp;" ) )
+			x <- c( x, paste0( "  matrix[F*F,F*F] Ahashjp;" ) )
+			x <- c( x, paste0( "  matrix[F,F] Sigmawjp;" ) )
+			x <- c( x, paste0( "  matrix[F,F] SigmawjpChol;" ) )
+			x <- c( x, paste0( "  matrix[F,F] Qstarjp;" ) )
+			x <- c( x, paste0( "  matrix[F,F] QstarjpChol;" ) )
 			
 			x <- c( x, paste0( "  // ##### loops over person groups with same number of time points T #########################################" ) )
 			for( i in 1:length(uniqueTj) ){
@@ -533,14 +596,32 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 				x <- c( x, paste0( "    // initial state" ) )
 				x <- c( x, paste0( "    thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = thetajpFirstTimepointT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1];" ) )
 				x <- c( x, paste0( "    // initial variance" ) )
-				x <- c( x, paste0( "    P[1] = to_matrix( SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] );" ) )
+				# x <- c( x, paste0( "    P[1] = to_matrix( SigmawjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] );" ) )
+				x <- c( x, paste0( "    P[1] = to_matrix( SigmawjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] );" ) )
 				x <- c( x, paste0( "    // loop beginning at second time points" ) )
 				x <- c( x, paste0( "    for (p in 2:",ifelse(N>1,"Tj[j]","Tj"),"){ // range: 2:",uniqueTj[i] ) )
+				
+				x <- c( x, paste0( "      // Astarjp, Eq. 12" ) )
+				x <- c( x, paste0( "      Astarjp = matrix_exp(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
+				x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
+				x <- c( x, paste0( "      Ahashjp = kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]));" ) )
+				x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
+				x <- c( x, paste0( "      Sigmawjp = unflatten_vector_to_matrix(-1*inverse(Ahashjp) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F);" ) )
+				x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
+				x <- c( x, paste0( "      SigmawjpChol = cholesky_decompose( Sigmawjp );" ) )
+				x <- c( x, paste0( "      // Qstarjp, Eq. 13" ) )
+				x <- c( x, paste0( "      Qstarjp = unflatten_vector_to_matrix( -1*( matrix_exp( Ahashjp * deltajpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) - IF2 ) * flatten_matrix_rowwise( Sigmawjp ),F,F);" ) )
+				x <- c( x, paste0( "      // Qstarjp Cholesky" ) )
+				x <- c( x, paste0( "      QstarjpChol = cholesky_decompose( Qstarjp );" ) )				
+				
 				x <- c( x, paste0( "      // time series, Eq. 15/16 " ) )
 				x <- c( x, paste0( "      // predict phase" ) )
 				# x <- c( x, paste0( "      to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])*to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
-				x <- c( x, paste0( "      thetajp_pred = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) * to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
-				x <- c( x, paste0( "      P_pred = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) * P[p-1] * to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])' + to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) ;" ) )
+				# x <- c( x, paste0( "      thetajp_pred = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) * to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
+				x <- c( x, paste0( "      thetajp_pred = Astarjp * to_vector(thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]);" ) )
+				# x <- c( x, paste0( "      P_pred = to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) * P[p-1] * to_matrix(AstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1])' + to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) ;" ) )
+				# x <- c( x, paste0( "      P_pred = Astarjp * P[p-1] * Astarjp + to_matrix(QstarjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p-1]) ;" ) )
+				x <- c( x, paste0( "      P_pred = Astarjp * P[p-1] * Astarjp + Qstarjp;" ) )
 				x <- c( x, paste0( "      // update phase" ) )				
 				x <- c( x, paste0( "      K = P_pred * inverse( P_pred + Sigmaeps ); // Kalman gain" ) )
 				x <- c( x, paste0( "      for(k in 1:F){" ) )
@@ -584,7 +665,8 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 			# 0.0.29 2024-05-06, no mean
 			if( !KF ) x <- c( x, paste0( "    to_vector( thetajpT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(zerovecF),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
 			# different structure for first time point, because first time point is still sampled in KF
-			if(  KF ) x <- c( x, paste0( "    to_vector( thetajpFirstTimepointT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(zerovecF),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
+			# if(  KF ) x <- c( x, paste0( "    to_vector( thetajpFirstTimepointT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(zerovecF),to_matrix(SigmawjpCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
+			if(  KF ) x <- c( x, paste0( "    to_vector( thetajpFirstTimepointT",uniqueTj[i],"[,1,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] ) ~ multi_normal_cholesky(to_vector(zerovecF),to_matrix(SigmawjpFirstTimepointCholT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1]));" ) )
 			# MH 0.0.32 2024-05-10 Kalman Filter
 			if( !KF ){
 				x <- c( x, paste0( "    // loop beginning at second time points" ) )

@@ -6,7 +6,7 @@ require( rstan )
 # options( mc.cores = (parallel::detectCores()-1) )
 options( mc.cores = 1 ); rstan_options(auto_write = TRUE)
 
-# library( conttime ) # 0.0.35 2024-05-11
+# library( conttime ) # 0.0.36 2024-05-12
 
 ### development
 library( mvtnorm )
@@ -21,7 +21,7 @@ for( Rfile in Rfiles ){
 }
 
 design.env <- gen.design()
-design.env <- gen.design(F=3)
+design.env <- gen.design(F=2,Tdiv=-1)
 # A0 <- matrix( c(-0.80,0,0,-0.80), 2, 2 )
 # value.env <- new.env()
 # assign( "A0", A0, envir = value.env, inherits = FALSE, immediate=TRUE )
@@ -33,6 +33,7 @@ data.env <- gen.data( design.env=design.env, value.env=NULL )
 # assign( "A0", A0, envir = sv.env, inherits = FALSE, immediate=TRUE )
 
 stn <- gen.stan( data.env=data.env, KF=TRUE ) # , start.values.env=sv.env
+# stn <- gen.stan( data.env=data.env, KF=FALSE ) # , start.values.env=sv.env
 
                               
 start <- Sys.time()
