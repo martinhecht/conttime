@@ -1,13 +1,14 @@
 Package: conttime
 Type: Package
-Title: What the Package Does in One 'Title Case' Line
-Version: 0.0.37
-Date: 2024-05-13
-Author: Your Name
-Maintainer: Your Name <your@email.com>
-Description: One paragraph description of what the package does as one or more full sentences.
+Title: Time-varying Continuous-time Modeling
+Version: 0.0.39
+Date: 2024-05-18
+Author: Martin Hecht
+Maintainer: Martin Hecht <martin.hecht@hsu-hh.de>
+Description: This package allows for the estimation of time-varying continuous-time models using the Stan framework.
 License: GPL (>= 2)
 Depends: 
 Suggests: 
 Imports: mvtnorm, expm, rstan
 LinkingTo: 
+RoxygenNote: 7.3.1

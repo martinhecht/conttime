@@ -2,15 +2,24 @@
 # MH 2024-04-26: set up
 
 ## Documentation
-#' @title
-#' @description
-#' @param
-#' @param
-#' @param
-#' @return
+#' @title Generate design
+#' @description Generate an individualized longitudinal design.
+#' @param F number of processes (variables), must be >= 1
+#' @param N number of persons, must be >= 1
+#' @param T the maximum number of time points for each person, must be >= 2
+#' @param Tdiv a negative number or zero indicating the extent to which the individualized number of time points may vary, T - Tdiv must be >= 2
+#' @param deltas possible time lengths between consecutive time points, used for sampling with the \code{sample()} function
+#' @param first.time.points possible first time points, used for sampling with the \code{sample()} function
+#' @param env an environment where return objects are written; if \code{NULL}, a new environment is created
+#' @param seed a number used as the seed for \code{set.seed(seed)} or the value "random" for the random generation of a seed
+#' @param verbose a logical value indicating whether to print detailed messages and progress updates during the execution of the function
+#' @return An environment is returned containing design characteristics and generated time points. Use \code{ls(envir=<returned environment>)} to view its contents.
 
 ## Function definition
-gen.design <- function( F=2, I=F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", verbose=FALSE ){
+gen.design <- function( F=2, N=5, T=3, Tdiv=-1, deltas=c(0.5,1,1.5), first.time.points=c(-1,-0.5,0,0.5,1), env=NULL, seed="random", verbose=FALSE ){
+		
+		# number of items
+		I=F
 		
 		### based on tvct_v1.pdf (2024-04-04)
 
@@ -64,14 +73,14 @@ gen.design <- function( F=2, I=F, N=5, T=3, Tdiv=-1, env=NULL, seed="random", ve
 		# deltajp
 		for( j in 1:N ){
 			for( p in 1:(Tj[j]-1) ){
-				deltajp[j,p] <- sample( c(0.5,1,1.5), 1 )
+				deltajp[j,p] <- sample( deltas, 1 )
 			}
 		}
 
 		# tjp
 		for( j in 1:N ){
 			# first time point
-			tjp[j,1] <- sample( c(-1,-0.5,0,0.5,1), 1 )
+			tjp[j,1] <- sample( first.time.points, 1 )
 			for( p in 2:Tj[j] ){
 				tjp[j,p] <- tjp[j,p-1] + deltajp[j,p-1]
 			}

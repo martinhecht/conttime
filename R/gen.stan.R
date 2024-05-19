@@ -2,16 +2,20 @@
 # MH 2024-04-29: renamed from estimate()
 
 ## Documentation
-#' @title
-#' @description
-#' @param
-#' @param
-#' @param
-#' @return
-
+#' @title Generate Stan code
+#' @description Generate Stan code and starting values for a time-varying continuous-time model.
+#' @param data.env an environment containing objects created by the \code{gen.data()} and \code{gen.design()} functions
+#' @param syntax.dir the directory where the Stan syntax file is written
+#' @param model.name name of the model, used to name the Stan file as <model.name>.stan
+#' @param model.parameters.env an environment containing declarations of model parameters in the matrices A0, Achange, and Q0; if \code{NULL}, the default parameterization is used
+#' @param prior.env an environment containing priors for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default priors are used
+#' @param start.values.env an environment containing start values for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default start values are used
+#' @param KF use Kalman Filter estimation
+#' @param verbose a logical value indicating whether to print detailed messages and progress updates during the execution of the function
+#' @return A list is returned containing the elements \code{syntax.path}, \code{data}, \code{init}, \code{model.parameters}, \code{par.env}, \code{prior.env}, and \code{start.values.env}.
 
 ## Function definition
-gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start.values.env=NULL, KF=FALSE, verbose=TRUE ){
+gen.stan <- function( data.env, syntax.dir=getwd(), model.name="model", model.parameters.env=NULL, prior.env=NULL, start.values.env=NULL, KF=TRUE, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
@@ -40,25 +44,6 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 
 		# no measurement model: F must be I
 		if( F!=I ) stop( paste0( "F = ", F , " is NOT equal to I = ", I , " (this is required for no measurement model)" ) )
-
-		model.parameters <- c( "A0", "Achange", "Q0" ) # "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu",  "Delta", "Sigmaeps", "SigmaepsA"
-		if( between.mu ) model.parameters <- c( model.parameters, "Sigmamu" )
-		A0          <- get('A0'         , envir=data.env, inherits=FALSE)
-		Achange     <- get('Achange'    , envir=data.env, inherits=FALSE)
-		# MH 0.0.30 2024-05-07, no epsAt
-		# SigmaepsA   <- get('SigmaepsA'  , envir=data.env, inherits=FALSE)
-		Q0          <- get('Q0'         , envir=data.env, inherits=FALSE)
-		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)		
-		# Qchange     <- get('Qchange'    , envir=data.env, inherits=FALSE)
-		# SigmaepsQ   <- get('SigmaepsQ'  , envir=data.env, inherits=FALSE)
-		# 0.0.29 2024-05-06, no mean
-		# mu0         <- get('mu0'        , envir=data.env, inherits=FALSE)
-		# muchange    <- get('muchange'   , envir=data.env, inherits=FALSE)
-		# Sigmaepsmu  <- get('Sigmaepsmu' , envir=data.env, inherits=FALSE)
-		if( between.mu ) Sigmamu     <- get('Sigmamu'    , envir=data.env, inherits=FALSE)
-		# 0.0.29 2024-05-06, no measurement model
-		# Delta       <- get('Delta'      , envir=data.env, inherits=FALSE)
-		# Sigmaeps    <- get('Sigmaeps'   , envir=data.env, inherits=FALSE)
 
 		# additional.structures <- c( "epsAt", "At", "epsQt", "Qt", "epsmut", "mut", "muj", "Ajp", "Qjp", "mujp", "Ahashjp", "Sigmawjp", "Astarjp", "Qstarjp", "thetajp", "omegajp", "epsjp", "zerovecF", "zerovecF2", "zerovecFF12", "zerovecI", "IF", "IF2", "S1", "S2", "S3"
 		additional.structures <- c( "IF", "IF2", "S1", "S2", "zerovecF", "zerovecF2", "zerovecFF12" ) # , "S3"
@@ -126,6 +111,30 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# ptuniquejpT <- mapply( function( js, Tj ) ptuniquejp[js,1:(Tj-1),drop=FALSE], Tj.list, uniqueTj, SIMPLIFY=FALSE )
 		names( ptuniquejpT ) <- paste0( "ptuniquejpT", uniqueTj )
 
+
+		model.parameters <- c( "A0", "Achange", "Q0" ) # "Qchange", "SigmaepsQ", "mu0", "muchange", "Sigmaepsmu",  "Delta", "Sigmaeps", "SigmaepsA"
+		if( between.mu ) model.parameters <- c( model.parameters, "Sigmamu" )
+		
+		# get empty structures
+		str.env <- gen.empty.structures( env=data.env )
+		
+		A0          <- get('A0'         , envir=str.env, inherits=FALSE)
+		Achange     <- get('Achange'    , envir=str.env, inherits=FALSE)
+		# MH 0.0.30 2024-05-07, no epsAt
+		# SigmaepsA   <- get('SigmaepsA'  , envir=data.env, inherits=FALSE)
+		Q0          <- get('Q0'         , envir=str.env, inherits=FALSE)
+		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)		
+		# Qchange     <- get('Qchange'    , envir=data.env, inherits=FALSE)
+		# SigmaepsQ   <- get('SigmaepsQ'  , envir=data.env, inherits=FALSE)
+		# 0.0.29 2024-05-06, no mean
+		# mu0         <- get('mu0'        , envir=data.env, inherits=FALSE)
+		# muchange    <- get('muchange'   , envir=data.env, inherits=FALSE)
+		# Sigmaepsmu  <- get('Sigmaepsmu' , envir=data.env, inherits=FALSE)
+		if( between.mu ) Sigmamu     <- get('Sigmamu'    , envir=str.env, inherits=FALSE)
+		# 0.0.29 2024-05-06, no measurement model
+		# Delta       <- get('Delta'      , envir=data.env, inherits=FALSE)
+		# Sigmaeps    <- get('Sigmaeps'   , envir=data.env, inherits=FALSE)
+
 		# Tests
 		### Delta[2,1] <- "lambda21"
 		# Delta[2,1] <- NA
@@ -136,8 +145,8 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# Sigmawjp[1,1,1,1] <- NA
 		
 		# keep fixed model parameters from data generation for starting values
-		keep.fixed <- list( "A0"=A0, "Achange"=Achange, "Q0"=Q0 ) # , "SigmaepsQ"=SigmaepsQ, "Qchange"=Qchange, "mu0"=mu0, "muchange"=muchange, "Sigmaepsmu"=Sigmaepsmu, "Delta"=Delta, "Sigmaeps"=Sigmaeps, "SigmaepsA"=SigmaepsA
-		if( between.mu ) keep.fixed <- c( keep.fixed, list( "Sigmamu"=Sigmamu ) )
+		# keep.fixed <- list( "A0"=A0, "Achange"=Achange, "Q0"=Q0 ) # , "SigmaepsQ"=SigmaepsQ, "Qchange"=Qchange, "mu0"=mu0, "muchange"=muchange, "Sigmaepsmu"=Sigmaepsmu, "Delta"=Delta, "Sigmaeps"=Sigmaeps, "SigmaepsA"=SigmaepsA
+		# if( between.mu ) keep.fixed <- c( keep.fixed, list( "Sigmamu"=Sigmamu ) )
 		
 		# Defaults
 		### TODO: ordentliche Defaults fuer Delta
@@ -178,6 +187,12 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# diag(Sigmaepsmu) <- NA
 		if( between.mu ) Sigmamu[] <- NA
 
+		# get elements of model.parameters.env and overwrite defaults
+		if( !is.null( model.parameters.env ) ){
+			if( "A0"      %in% ls(envir=model.parameters.env) )      A0      <- get('A0'         , envir=model.parameters.env, inherits=FALSE)
+			if( "Achange" %in% ls(envir=model.parameters.env) )      Achange <- get('Achange'    , envir=model.parameters.env, inherits=FALSE)
+			if( "Q0"      %in% ls(envir=model.parameters.env) )      Q0      <- get('Q0'         , envir=model.parameters.env, inherits=FALSE)
+		}
 
 		### determine structure type for model parameters: free, fixed, mixed (free parameters and fixed values)
 		structure.type <- array( as.character(NA), dim=length(model.parameters) )
@@ -230,8 +245,19 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 			assign( model.parameters[i], eval( parse( text=model.parameters[i] ) ), envir = par.env, inherits = FALSE, immediate=TRUE )
 		}
 
+		if( verbose ){
+			cat( paste0( "parameterization:\n" ) )
+			cat( paste0( "(free parameters: NA or label; fixed paramters: number)\n" ) )
+			cat( paste0( "A0:\n" ) )
+			print( A0 )
+			cat( paste0( "Achange:\n" ) )
+			print( Achange )
+			cat( paste0( "Q0:\n" ) )
+			print( Q0 )
+		}
+
 		### stan syntax
-		x <- paste0( "// ", date() )
+		x <- paste0( "// Model name: ", model.name, " | ", date() )
 
 		## functions
 		x <- c( x, paste0( "functions {" ) )
@@ -738,18 +764,111 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# x <- c( x, paste0( "  Achange[1,2] ~ normal(0,0.01);" ) )
 		# x <- c( x, paste0( "  Achange[2,1] ~ normal(0,0.01);" ) )
 
+		# defaults
+		empty.str.env <- gen.empty.structures(env=data.env)
+		A0.prior <- get( "A0", envir=empty.str.env, inherits=FALSE )
+		Achange.prior <- get( "Achange", envir=empty.str.env, inherits=FALSE )
+		Q0.prior <- get( "Q0", envir=empty.str.env, inherits=FALSE )
+		
+		A0.prior[] <- "normal(0.10,0.25)"
+		diag( A0.prior ) <- "normal(-0.75,0.25) T[,-1e-3]"
+		Achange.prior[] <- "normal(0,0.01)"
+		Q0.prior[] <- "normal(0,25)"
+		diag( Q0.prior ) <- "inv_gamma(2,1)"
+		
+		# get elements of prior.env and overwrite defaults
+		if( !is.null( prior.env ) ){
+			if( "A0"      %in% ls(envir=prior.env) ){
+				A0.prior2      <- get('A0'         , envir=prior.env, inherits=FALSE)
+				for (i in 1:dim(A0.prior2)[1]) {
+					for (j in 1:dim(A0.prior2)[2]) {
+						if( !is.na( A0.prior2[i,j] ) ) A0.prior[i,j] <- A0.prior2[i,j]
+					}
+				}
+			}
+			if( "Achange" %in% ls(envir=prior.env) ){
+				Achange.prior2 <- get('Achange'    , envir=prior.env, inherits=FALSE)
+				for (i in 1:dim(Achange.prior2)[1]) {
+					for (j in 1:dim(Achange.prior2)[2]) {
+						if( !is.na( Achange.prior2[i,j] ) ) Achange.prior[i,j] <- Achange.prior2[i,j]
+					}
+				}
+			}
+			if( "Q0"      %in% ls(envir=prior.env) ){
+				Q0.prior2      <- get('Q0'         , envir=prior.env, inherits=FALSE)
+				for (i in 1:dim(Q0.prior2)[1]) {
+					for (j in 1:dim(Q0.prior2)[2]) {
+						if( !is.na( Q0.prior2[i,j] ) ) Q0.prior[i,j] <- Q0.prior2[i,j]
+					}
+				}
+			}
+		}
+
+		## alignment with fixed values
+		# if NA or as.numeric=NA, then it's a free parameter, otherwise fixed
+		# fixed parameters get NA as prior
+		for (i in 1:dim(A0.prior)[1]) {
+			for (j in 1:dim(A0.prior)[2]) {
+				if( !is.na( suppressWarnings( as.numeric( A0[i,j] ) ) ) ) A0.prior[i,j] <- NA
+			}
+		}
+		for (i in 1:dim(Achange.prior)[1]) {
+			for (j in 1:dim(Achange.prior)[2]) {
+				if( !is.na( suppressWarnings( as.numeric( Achange[i,j] ) ) ) ) Achange.prior[i,j] <- NA
+			}
+		}
+		for (i in 1:dim(Q0.prior)[1]) {
+			for (j in 1:dim(Q0.prior)[2]) {
+				if( !is.na( suppressWarnings( as.numeric( Q0[i,j] ) ) ) ) Q0.prior[i,j] <- NA
+			}
+		}
+
+		priors <- c( "A0.prior", "Achange.prior", "Q0.prior" )
+
+		# put used priors on environment to return
+		if( is.null( prior.env ) ){
+			used.prior.env <- new.env()
+			for( i in 1:length( priors ) ){
+				assign( priors[i], eval( parse( text=priors[i] ) ), envir = used.prior.env, inherits = FALSE, immediate=TRUE )
+			}
+		} else {
+			used.prior.env <- prior.env
+		}
+		
+		if( verbose ){
+			cat( paste0( "priors used for estimation:\n" ) )
+			cat( paste0( "A0:\n" ) )
+			print( A0.prior )
+			cat( paste0( "Achange:\n" ) )
+			print( Achange.prior )
+			cat( paste0( "Q0:\n" ) )
+			print( Q0.prior )
+		}
+		
+		# Stan code to set priors
+		priors.dim1 <- c( dim(A0.prior)[1], dim(Achange.prior)[1], dim(Q0.prior)[1] )
+		priors.dim2 <- c( dim(A0.prior)[2], dim(Achange.prior)[2], dim(Q0.prior)[2] )
+
 		x <- c( x, paste0( "  // priors" ) )
-		x <- c( x, paste0( "  for (i in 1:F) {" ) )
-		x <- c( x, paste0( "    for (j in 1:F) {" ) )
-		x <- c( x, paste0( "      Achange[i,j] ~ normal(0,0.01);" ) )
-		x <- c( x, paste0( "      if (i == j) {" ) )
-		x <- c( x, paste0( "        A0[i,j] ~ normal(-0.75,0.25) T[,0];" ) )
-		x <- c( x, paste0( "        Q0[i,j] ~ inv_gamma(2,1);" ) )
-		x <- c( x, paste0( "      } else {" ) )
-		x <- c( x, paste0( "        A0[i,j] ~ normal(0.10,0.25);" ) )
-		x <- c( x, paste0( "      }" ) )
-		x <- c( x, paste0( "    }" ) )
-		x <- c( x, paste0( "  }" ) )
+		for( i in 1:length( priors ) ){
+			for (j in 1:priors.dim1[i]) {
+				for (k in 1:priors.dim2[i]) {
+					if( !is.na( eval(parse(text=paste0( priors[i], "[",j,",",k,"]" ))) ) ) {
+						# label or not
+						lab1 <- eval(parse(text=paste0( sub(".prior","",priors[i],fixed=TRUE),"[",j,",",k,"]" ) ) )
+						lab2 <- paste0( sub(".prior","",priors[i],fixed=TRUE),"[",j,",",k,"]" )
+						if( is.na( eval(parse(text=paste0( "suppressWarnings(as.numeric(",sub(".prior","",priors[i],fixed=TRUE), "[",j,",",k,"]))" )))) & !is.na( eval(parse(text=paste0( sub(".prior","",priors[i],fixed=TRUE), "[",j,",",k,"]" )))) ){
+							lab <- lab1
+							labcomment <- paste0( " // ", lab2 )
+						} else {
+							lab <- lab2
+							labcomment <- ""
+						}
+						x <- c( x, paste0( "  ",lab," ~ ",eval(parse(text=paste0( priors[i], "[",j,",",k,"]" ))),";",labcomment ) )
+					}
+				}
+			}
+		}
 		
 		# end model
 		x <- c( x, paste0( "}" ) )
@@ -758,8 +877,8 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		x <- c( x, paste0( "" ) )
 		
 		## write file
-		file.name <- "model"
-		syntax.path <- file.path( syntax.dir, paste0( file.name, ".stan" ) )
+		file.name <- paste0( model.name, ".stan" )
+		syntax.path <- file.path( syntax.dir, file.name )
 		write( x, file=syntax.path, sep="\n" )
 		# remove rds
 		rds.path <- file.path( syntax.dir, paste0( file.name, ".rds" ) )
@@ -801,23 +920,23 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		# epsQt <- get('epsQt', envir=data.env, inherits=FALSE)
 		# epsAt[] <- 0
 		# epsQt[] <- 0
-		Q0 <- keep.fixed$Q0
-		Q0[] <- 0
-		diag( Q0 ) <- 1
+		# Q0 <- keep.fixed$Q0
+		# Q0[] <- 0
+		# diag( Q0 ) <- 1
 		# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 		# Qchange <- keep.fixed$Qchange
 		# Qchange[] <- 0
 		# diag( Qchange ) <- 10^-6
-		A0 <- keep.fixed$A0
-		A0[] <- 0
-		diag( A0 ) <- -0.75
-		Achange <- keep.fixed$Achange
-		Achange[] <- 0
-		if( between.mu ) {
-			Sigmamu <- keep.fixed$Sigmamu
-			Sigmamu[] <- 0
-			diag( Sigmamu ) <- 1
-		}
+		# A0 <- keep.fixed$A0
+		# A0[] <- 0
+		# diag( A0 ) <- -0.75
+		# Achange <- keep.fixed$Achange
+		# Achange[] <- 0
+		# if( between.mu ) {
+			# Sigmamu <- keep.fixed$Sigmamu
+			# Sigmamu[] <- 0
+			# diag( Sigmamu ) <- 1
+		# }
 		# sigmaepsA.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsA.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsA.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 		# sigmaepsQ.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsQ.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsQ.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
 		# sigmaepsmu.sv <- paste( paste0( "'", parameters.of.mixed.structures[grepl("^sigmaepsmu.*$",parameters.of.mixed.structures)], "'=",starting.values[parameters.of.mixed.structures[grepl("^sigmaepsmu.*$",parameters.of.mixed.structures)]],"" ), collapse=", " )
@@ -844,6 +963,17 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 			if( "Achange" %in% ls(envir=start.values.env) )      Achange.sv <- get('Achange'    , envir=start.values.env, inherits=FALSE)
 			if( "Q0"      %in% ls(envir=start.values.env) )      Q0.sv      <- get('Q0'         , envir=start.values.env, inherits=FALSE)
 		}
+
+		# put used start values on environment to return
+		if( is.null( start.values.env ) ){
+			used.start.values.env <- new.env()
+			svs <- c( "A0.sv", "Achange.sv", "Q0.sv" )
+			for( i in 1:length( svs ) ){
+				assign( svs[i], eval( parse( text=svs[i] ) ), envir = used.start.values.env, inherits = FALSE, immediate=TRUE )
+			}
+		} else {
+			used.start.values.env <- start.values.env
+		}
 		
 		if( verbose ){
 			cat( paste0( "start values used for estimation:\n" ) )
@@ -860,7 +990,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 		
 
 	# return
-	ret <- list( "syntax.path"=syntax.path, "data"=dat, "init"=init_fun, "model.parameters"=model.parameters, "par.env"=par.env )
+	ret <- list( "data"=dat, "syntax.path"=syntax.path, "model.name"=model.name, "init"=init_fun, "model.parameters"=model.parameters, "par.env"=par.env, "prior.env"=used.prior.env, "start.values.env"=used.start.values.env )
 
 }
 
@@ -879,7 +1009,7 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 
 # design.env <- gen.design()
 # data.env <- gen.data( design.env=design.env )
-# stn <- gen.stan( data.env=data.env )
+# stn <- gen.stan( data.env=data.env, syntax.dir="C:/users/martin/Desktop/temp" )
 
 ## require packages
 # require( rstan )
@@ -888,7 +1018,9 @@ gen.stan <- function( data.env, syntax.dir="C:/users/martin/Desktop/temp", start
 
 ## fit
 # fit <- stan( file = stn$syntax.path, data = stn$data, init=stn$init, chains = 1, iter = 10 )
-# print( fit )
+
+# est <- get.stan( fit=fit, stn=stn, true.env=data.env )
+
 
 # ( summ <- summary(fit, pars = c("Delta", "A0"))$summary )
 

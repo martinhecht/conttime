@@ -2,16 +2,19 @@
 # MH 2024-04-29: set up
 
 ## Documentation
-#' @title
-#' @description
-#' @param
-#' @param
-#' @param
-#' @return
+#' @title Get results
+#' @description Get results from fitted Stan model
+#' @param fit the results object from running the \code{stan()} function
+#' @param stn the results object from running the \code{gen.stan()} function
+#' @param true.env an environment containing the true values for the model parameters in the matrices A0, Achange, and Q0; used to calculate bias
+#' @param transformed.parameters a logical value indicating whether the transformed parameters \code{c("lp__", "thetajp", "At", "Qt", "Ajp", "Qjp", "Astarjp", "Qstarjp", "Sigmawjp")} should be included in the returned results, or a character vector specifying which transformed parameters to include
+#' @param sort.by.bias a logical value indicating whether to sort results by bias (if true values are provided in true.env)
+#' @param verbose a logical value indicating whether to print detailed messages and progress updates during the execution of the function
+#' @return A data frame with parameter estimates (and bias if true values are provided) is returned.
 
 
 ## Function definition
-get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, verbose=FALSE ){
+get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, sort.by.bias=TRUE, verbose=FALSE ){
 	
 	# require packages
 	requireNamespace( "rstan" )
@@ -79,6 +82,11 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, ver
 	vorn <- "no"
 	df <- df[, c( vorn, colnames(df)[!colnames(df) %in% vorn] ) ]
 	
+	# sort by bias
+	if( !is.null( df$bias ) & !is.null( df$bias.percent ) & sort.by.bias ){
+		df <- df[ order( abs( df$bias.percent ), abs( df$bias ), decreasing=TRUE ), ]
+	}
+	
 	return( df )
 }
 
@@ -92,6 +100,22 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, ver
 # for( Rfile in Rfiles ){
 	# source( file.path( Rfiles.folder, Rfile ) )
 # }
+
+# require packages
+# require( rstan )
+# options( mc.cores = (parallel::detectCores()-1) )
+# options( mc.cores = 1 ); rstan_options(auto_write = TRUE)
+# require( "mvtnorm" )
+# require( "expm" )
+
+# design.env <- gen.design()
+# data.env <- gen.data( design.env=design.env )
+# stn <- gen.stan( data.env=data.env, syntax.dir="C:/users/martin/Desktop/temp" )
+
+## fit
+# fit <- stan( file=stn$syntax.path, model_name=stn$modle.name, data=stn$data, init=stn$init, chains=1, iter=10 )
+
+# est <- get.stan( fit=fit, stn=stn, true.env=data.env )
 
 
 ### test
