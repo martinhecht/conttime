@@ -113,7 +113,7 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, sor
 # stn <- gen.stan( data.env=data.env, syntax.dir="C:/users/martin/Desktop/temp" )
 
 ## fit
-# fit <- stan( file=stn$syntax.path, model_name=stn$modle.name, data=stn$data, init=stn$init, chains=1, iter=10 )
+# fit <- stan( file=stn$syntax.path, model_name=stn$model.name, data=stn$data, init=stn$init, chains=1, iter=10 )
 
 # est <- get.stan( fit=fit, stn=stn, true.env=data.env )
 

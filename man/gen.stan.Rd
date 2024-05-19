@@ -7,10 +7,10 @@
 gen.stan(
   data.env,
   syntax.dir = getwd(),
-  model.name = "model",
+  model_name = "model",
   model.parameters.env = NULL,
   prior.env = NULL,
-  start.values.env = NULL,
+  chains = NULL,
   KF = TRUE,
   verbose = TRUE
 )
@@ -20,20 +20,20 @@ gen.stan(
 
 \item{syntax.dir}{the directory where the Stan syntax file is written}
 
-\item{model.name}{name of the model, used to name the Stan file as <model.name>.stan}
+\item{model_name}{name of the model, used to name the Stan file as <model_name>.stan}
 
 \item{model.parameters.env}{an environment containing declarations of model parameters in the matrices A0, Achange, and Q0; if \code{NULL}, the default parameterization is used}
 
 \item{prior.env}{an environment containing priors for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default priors are used}
 
-\item{start.values.env}{an environment containing start values for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default start values are used}
+\item{chains}{Argument chains is used only for start value creation. Use \code{start.values()} for optional manual start value creation or to change defaults. If \code{NULL}, default start values are used. If a numeric value >= 1 is provided, jittered default start values are used.}
 
 \item{KF}{use Kalman Filter estimation}
 
 \item{verbose}{a logical value indicating whether to print detailed messages and progress updates during the execution of the function}
 }
 \value{
-A list is returned containing the elements \code{syntax.path}, \code{data}, \code{init}, \code{model.parameters}, \code{par.env}, \code{prior.env}, and \code{start.values.env}.
+A list is returned containing the elements TODO CHECK ADAPT \code{syntax.path}, \code{data}, \code{init}, \code{model.parameters}, \code{par.env}, \code{prior.env}, and \code{start.values.env}.
 }
 \description{
 Generate Stan code and starting values for a time-varying continuous-time model.
