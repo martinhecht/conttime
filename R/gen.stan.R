@@ -771,11 +771,11 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	Achange.prior <- get( "Achange", envir=empty.str.env, inherits=FALSE )
 	Q0.prior <- get( "Q0", envir=empty.str.env, inherits=FALSE )
 	
-	A0.prior[] <- "normal(0.10,0.25)"
-	diag( A0.prior ) <- "normal(-0.75,0.25) T[,-1e-3]"
-	Achange.prior[] <- "normal(0,0.01)"
+	A0.prior[] <- "normal(0,0.25)"
+	diag( A0.prior ) <- "normal(-0.69,0.25) T[,-1e-3]"
+	Achange.prior[] <- "normal(0,0.0625)"
 	Q0.prior[] <- "normal(0,25)"
-	diag( Q0.prior ) <- "inv_gamma(2,1)"
+	diag( Q0.prior ) <- "inv_gamma(0.5,0.5)"
 	
 	# get elements of prior.env and overwrite defaults
 	if( !is.null( prior.env ) ){

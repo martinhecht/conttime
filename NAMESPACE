@@ -1,6 +1,7 @@
-import(rstan)
 import(mvtnorm)
 import(expm)
+import(matrixcalc)
+import(rstan)
 #exportPattern("^[[:alpha:]]+")
 export(gen.design)
 export(gen.data)

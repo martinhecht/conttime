@@ -18,6 +18,9 @@
 ## Function definition
 start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, verbose=TRUE ){
 
+	# require packages
+	requireNamespace( "matrixcalc" )
+
 	## start values for parameters of mixed structures
 	# https://discourse.mc-stan.org/t/how-to-define-initial-values-in-stan-in-r/16855
 	# starting.values <- rep(NA,length(parameters.of.mixed.structures))
@@ -76,10 +79,10 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 	A0.sv <- Achange.sv <- Q0.sv <- matrix( as.numeric(NA), F, F )
 	
 	A0.sv[] <- 0
-	diag( A0.sv ) <- -0.75
+	diag( A0.sv ) <- -0.69
 	Achange.sv[] <- 0
 	Q0.sv[] <- 0
-	diag( Q0.sv ) <- 1		
+	diag( Q0.sv ) <- 0.5		
 	
 	# get elements of start.values.env and overwrite defaults
 	if( !is.null( start.values.env ) ){
@@ -108,8 +111,8 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 		if( "Achange" %in% ls(envir=par.env) )      Achange.par <- get('Achange'    , envir=par.env, inherits=FALSE) else Achange.par <- NULL
 		if( "Q0"      %in% ls(envir=par.env) )      Q0.par      <- get('Q0'         , envir=par.env, inherits=FALSE) else Q0.par <- NULL
 
-		for (i in 1:dim(A0.sv)[1]) { # !!!dimensions
-			for (j in 1:dim(A0.sv)[2]) { # !!!dimensions
+		for (i in 1:dim(A0.sv)[1]) { # !!!dimensions, must match for all matrices
+			for (j in 1:dim(A0.sv)[2]) { # !!!dimensions, must match for all matrices
 				if( !is.null( A0.par )      && !is.na( suppressWarnings( as.numeric( A0.par[i,j] ) ) ) )      A0.sv[i,j] <- NA
 				if( !is.null( Achange.par ) && !is.na( suppressWarnings( as.numeric( Achange.par[i,j] ) ) ) ) Achange.sv[i,j] <- NA
 				if( !is.null( Q0.par )      && !is.na( suppressWarnings( as.numeric( Q0.par[i,j] ) ) ) )      Q0.sv[i,j] <- NA
@@ -117,19 +120,48 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 		}
 	}
 
+	# MH 0.0.41 2024-05-27 new complete matrix to check complete starting value matrix for positive definiteness
+	### there will be problems when par.env is not set, ignore now, only relevant for manual call of start.values()
+	Q0.sv.full <- Q0.sv
+	for (i in 1:dim(Q0.sv.full)[1]) {
+		for (j in 1:dim(Q0.sv.full)[2]) {
+			if( !is.null( Q0.par )      && !is.na( suppressWarnings( as.numeric( Q0.par[i,j] ) ) ) ) Q0.sv.full[i,j] <- as.numeric( Q0.par[i,j] )
+		}
+	}
+	# check Q0 and its Cholesky factor for positive definiteness
+	if( !is.positive.definite( Q0.sv.full ) ) stop( "starting value Q0 matrix is not positive definite" )
+	Q0Chol.sv.full <- chol(Q0.sv.full)
+	if( !is.positive.definite( Q0Chol.sv.full ) ) stop( "cholesky factor of starting value Q0 matrix is not positive definite" )
+	if( verbose ){
+			cat( paste0( "just for interest:\n" ) )
+			cat( paste0( "positive definite start values Q0 (with set values for fixed parameters):\n" ) )
+			print( Q0.sv.full )
+			cat( paste0( "positive definite start values cholesky Q0:\n" ) )
+			print( Q0Chol.sv.full )
+			cat( paste0( "----------------------------------------------------------------------------\n" ) )
+	}
+
+	# relevant matrices
+	matrs <- c( "A0", "Achange", "Q0" )
+
 	if( !jitter ){
-	
+
+		# MH 0.0.41 2024-05-27, full free matrices can go into as is, but for mixed matrices, only start values for elements can go in
+		sv.list <- sv.to.list( matrs=matrs, matr.suffix=".sv", env=environment() )
+		
 		# init_fun <- eval(parse(text=paste0( "function(...) c( list( ",ifelse( between.mu, "'Sigmamu'=Sigmamu, ", "" ),'A0'=A0, 'Achange'=Achange, 'Q0'=Q0," ) )" ))) # ,sigmaepsQ.sv,", "  'epsQt'=epsQt, , 'Qchange'=Qchange, , ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," sigmaepsA.sv, ,'epsAt'=epsAt
-		init <- function(...) list( 'A0'=A0.sv, 'Achange'=Achange.sv, 'Q0'=Q0.sv ) # ,sigmaepsQ.sv,", "  'epsQt'=epsQt, , 'Qchange'=Qchange, , ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," sigmaepsA.sv, ,'epsAt'=epsAt
+		# init <- function(...) list( 'A0'=A0.sv, 'Achange'=Achange.sv, 'Q0'=Q0.sv, 'Q0Chol'=Q0Chol.sv ) # ,sigmaepsQ.sv,", "  'epsQt'=epsQt, , 'Qchange'=Qchange, , ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," sigmaepsA.sv, ,'epsAt'=epsAt
+		# init <- function(...) list( 'A0'=A0.sv, 'Achange'=Achange.sv, 'q011'=1, 'q022'=1 ) # ,sigmaepsQ.sv,", "  'epsQt'=epsQt, , 'Qchange'=Qchange, , ",sigmaepsmu.sv,", ",sigmaeps.sv,", ",lambda.sv," sigmaepsA.sv, ,'epsAt'=epsAt
+		init <- function(...) eval(parse(text="sv.list"))
 
 		if( verbose ){
 			cat( paste0( ifelse( default.sv, "default ", "" ),"start values ",ifelse( chains>1, paste0("(for all ",chains," chains)"), "(for the one and only chain)" ),":\n" ) )
-			cat( paste0( "A0:\n" ) )
-			print( A0.sv )
-			cat( paste0( "Achange:\n" ) )
-			print( Achange.sv )
-			cat( paste0( "Q0:\n" ) )
-			print( Q0.sv )
+			
+			inits <- init()
+			for( par in names( inits ) ){
+				cat( paste0( par, ":\n" ) )
+				print( inits[[par]] )
+			}
 		}
 		
 		# seed for jittering (for returning)
@@ -178,19 +210,32 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 					Q0.temp[j,k]      <- Q0.temp[j,k] + eval(parse(text=Q0.jitter[j,k]))
 				}
 			}
-			init[[i]] <- list( "A0"=A0.temp, "Achange"=Achange.temp, "Q0"=Q0.temp )
+
+			# MH 0.0.41 2024-05-27 new complete matrix to check complete starting value matrix for positive definiteness
+			### there will be problems when par.env is not set, ignore now, only relevant for manual call of start.values()
+			Q0.temp.full <- Q0.temp
+			for (j in 1:dim(Q0.temp.full)[1]) {
+				for (k in 1:dim(Q0.temp.full)[2]) {
+					if( !is.null( Q0.par )      && !is.na( suppressWarnings( as.numeric( Q0.par[j,k] ) ) ) ) Q0.temp.full[j,k] <- as.numeric( Q0.par[j,k] )
+				}
+			}
+			# check Q0 and its Cholesky factor for positive definiteness
+			if( !is.positive.definite( Q0.temp.full ) ) stop( "jittered starting value Q0 matrix is not positive definite" )
+			Q0Chol.temp.full <- chol(Q0.temp.full)
+			if( !is.positive.definite( Q0Chol.temp.full ) ) stop( "cholesky factor of jittered starting value Q0 matrix is not positive definite" )
+			
+			# init[[i]] <- list( "A0"=A0.temp, "Achange"=Achange.temp, "Q0"=Q0.temp )
+			init[[i]] <- sv.to.list( matrs=matrs, matr.suffix=".temp", env=environment() )
 		}
-	
+
 		if( verbose ){
 			cat( paste0( "jittered",ifelse( default.sv, " default", "" )," start values ",ifelse( chains>1, paste0("(different for each of the ",chains," chains)"), "(for the one and only chain)" ),":\n" ) )
 			for( i in 1:chains ){
 				cat( paste0( "chain ", i ,":\n" ) )
-				cat( paste0( "A0:\n" ) )
-				print( init[[i]]$A0 )
-				cat( paste0( "Achange:\n" ) )
-				print( init[[i]]$Achange )
-				cat( paste0( "Q0:\n" ) )
-				print( init[[i]]$Q0 )
+				for( par in names( init[[i]] ) ){
+					cat( paste0( par, ":\n" ) )
+					print( init[[i]][[par]] )
+				}
 			}
 		}
 	

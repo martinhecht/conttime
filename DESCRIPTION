@@ -1,14 +1,14 @@
 Package: conttime
 Type: Package
 Title: Time-varying Continuous-time Modeling
-Version: 0.0.40
-Date: 2024-05-19
+Version: 0.0.41
+Date: 2024-05-27
 Author: Martin Hecht
 Maintainer: Martin Hecht <martin.hecht@hsu-hh.de>
 Description: This package allows for the estimation of time-varying continuous-time models using the Stan framework.
 License: GPL (>= 2)
 Depends: 
 Suggests: 
-Imports: mvtnorm, expm, rstan
+Imports: mvtnorm, expm, matrixcalc, rstan
 LinkingTo: 
 RoxygenNote: 7.3.1

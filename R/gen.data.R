@@ -109,14 +109,14 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 		
 		# if( defaults %in% 1 ){
 			A0[] <- 0.10
-			diag( A0 ) <- -0.75
+			diag( A0 ) <- -0.69
 
 			Achange[] <- 0
 			diag( Achange ) <- 0
 
 			# MH 0.0.28 2024-05-04 Q covariance fixed to 0
 			Q0[] <- 0
-			diag( Q0 ) <- 1
+			diag( Q0 ) <- 0.5
 			
 			# Qchange[] <- 0
 			# diag( Qchange ) <- 0
