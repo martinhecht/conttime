@@ -232,9 +232,10 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 		for( j in 1:N ){
 			for( p in 1:(Tj[j]-1) ){
 				# Astarjp, Eq. 12
-				Astarjp[,,j,p] <- expm( Ajp[,,j,p] * deltajp[j,p] )
+				# MH 0.0.44 2024-05-31, as.matrix needed for F=1
+				Astarjp[,,j,p] <- expm( as.matrix( Ajp[,,j,p] * deltajp[j,p] ) )
 				# Qstarjp, Eq. 13
-				Qstarjp[,,j,p] <- irow( -( expm( Ahashjp[,,j,p] * deltajp[j,p] ) - IF2 ) %*% row( Sigmawjp[,,j,p] ) )			
+				Qstarjp[,,j,p] <- irow( -( expm( as.matrix( Ahashjp[,,j,p] * deltajp[j,p] ) ) - IF2 ) %*% row( Sigmawjp[,,j,p] ) )			
 			}
 		}
 
@@ -242,10 +243,11 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 			# theta, first time point, Eq. 17
 			# thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,1,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
 			# 0.0.29 2024-05-06, no mean
-			thetajp[,1,j,1] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmawjp[,,j,1] )
+			# MH 0.0.44 2024-05-31, as.matrix needed for F=1
+			thetajp[,1,j,1] <- rmvnorm( 1, mean=zerovecF, sigma=as.matrix( Sigmawjp[,,j,1] ) )
 			for( p in 2:Tj[j] ){
 				# omegajp, Eq. 15
-				omegajp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=Qstarjp[,,j,p-1] )
+				omegajp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=as.matrix( Qstarjp[,,j,p-1] ) )
 				# thetajp, Eq. 16
 				# thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + ( IF - Astarjp[,,j,p-1] ) %*% as.matrix( mujp[,1,j,p,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
 				# 0.0.29 2024-05-06, no mean

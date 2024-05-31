@@ -80,7 +80,10 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 	
 	A0.sv[] <- 0
 	diag( A0.sv ) <- -0.69
-	Achange.sv[] <- 0
+	# Achange.sv[] <- 0
+	# MH 0.0.43
+	Achange.sv[] <- -0.1
+	diag(Achange.sv) <- -0.2
 	Q0.sv[] <- 0
 	diag( Q0.sv ) <- 0.5		
 	
@@ -129,14 +132,43 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 		}
 	}
 	# check Q0 and its Cholesky factor for positive definiteness
-	if( !is.positive.definite( Q0.sv.full ) ) stop( "starting value Q0 matrix is not positive definite" )
+	if( !is_positive_definite( Q0.sv.full ) ) stop( "starting value Q0 matrix is not positive definite" )
 	Q0Chol.sv.full <- chol(Q0.sv.full)
-	if( !is.positive.definite( Q0Chol.sv.full ) ) stop( "cholesky factor of starting value Q0 matrix is not positive definite" )
+	if( !is_positive_definite( Q0Chol.sv.full ) ) stop( "cholesky factor of starting value Q0 matrix is not positive definite" )
 	if( verbose ){
 			cat( paste0( "just for interest:\n" ) )
 			cat( paste0( "positive definite start values Q0 (with set values for fixed parameters):\n" ) )
 			print( Q0.sv.full )
 			cat( paste0( "positive definite start values cholesky Q0:\n" ) )
+			print( Q0Chol.sv.full )
+			# cat( paste0( "----------------------------------------------------------------------------\n" ) )
+	}
+
+	# A0.sv.full (full in the sense that fixed parameters are filled in
+	A0.sv.full <- A0.sv
+	for (i in 1:dim(A0.sv.full)[1]) {
+		for (j in 1:dim(A0.sv.full)[2]) {
+			if( !is.null( A0.par )      && !is.na( suppressWarnings( as.numeric( A0.par[i,j] ) ) ) ) A0.sv.full[i,j] <- as.numeric( A0.par[i,j] )
+		}
+	}
+
+
+	## check total variance and cholesky factor
+	# discrete-time autoregressive matrix
+	delta <- 1
+	Adelta <- expm( A0.sv.full * delta ) # TODO: add Achange
+	# discrete-time process error covariance matrix
+	Ah <- A0.sv.full %x% diag( F ) + diag( F ) %x% A0.sv.full
+	# ( Qdelta <- irow( solve( Ah ) %*% ( expm( Ah * delta ) - diag( F^2 ) ) %*% row( Q ) ) )
+	# asymptotic diffusion matrix
+	Sigmaw.sv <- irow( -1*solve( Ah ) %*% row(Q0.sv.full) )
+	if( !is_positive_definite( Sigmaw.sv ) ) stop( "starting value Sigmaw matrix is not positive definite" )
+	SigmawChol.sv <- chol( Sigmaw.sv )
+	if( !is_positive_definite( SigmawChol.sv ) ) stop( "cholesky factor of jittered starting value Sigmaw matrix is not positive definite" )
+	if( verbose ){
+			cat( paste0( "positive definite start values Sigmaw:\n" ) )
+			print( Q0.sv.full )
+			cat( paste0( "positive definite start values cholesky Sigmaw:\n" ) )
 			print( Q0Chol.sv.full )
 			cat( paste0( "----------------------------------------------------------------------------\n" ) )
 	}
@@ -199,33 +231,86 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 
 		# generate jittered start values
 		init <- sapply( 1:chains, function(x) NULL, simplify=FALSE )
+		if( verbose ) cat( paste0( "trying to generate jittered start values for Q0\n" ) )
 		for( i in 1:chains ){
-			A0.temp <- A0.sv
-			Achange.temp <- Achange.sv
-			Q0.temp <- Q0.sv
-			for (j in 1:dim(A0.temp)[1]) { # !!!dimensions
-				for (k in 1:dim(A0.temp)[2]) { # !!!dimensions
-					A0.temp[j,k]      <- A0.temp[j,k] + eval(parse(text=A0.jitter[j,k]))
-					Achange.temp[j,k] <- Achange.temp[j,k] + eval(parse(text=Achange.jitter[j,k]))
-					Q0.temp[j,k]      <- Q0.temp[j,k] + eval(parse(text=Q0.jitter[j,k]))
+			keep.trying <- TRUE
+			tries.max <- 100
+			try <- 1
+			while( keep.trying && try <= tries.max ){
+				if( verbose ) {
+					if( try==1 ) cat( paste0( "chain ", i, " ." ) ) else cat( "." )
+					flush.console()
 				}
-			}
+				
+				A0.temp <- A0.sv
+				Achange.temp <- Achange.sv
+				Q0.temp <- Q0.sv
+				for (j in 1:dim(A0.temp)[1]) { # !!!dimensions
+					for (k in 1:dim(A0.temp)[2]) { # !!!dimensions
+						A0.temp[j,k]      <- A0.temp[j,k] + eval(parse(text=A0.jitter[j,k]))
+						Achange.temp[j,k] <- Achange.temp[j,k] + eval(parse(text=Achange.jitter[j,k]))
+					}
+				}
+				for (j in 1:dim(Q0.temp)[1]) {
+					for (k in 1:j) {
+						Q0.temp[j,k]      <- Q0.temp[j,k] + eval(parse(text=Q0.jitter[j,k]))
+						Q0.temp[k,j]      <- Q0.temp[j,k]
+					}
+				}				
 
-			# MH 0.0.41 2024-05-27 new complete matrix to check complete starting value matrix for positive definiteness
-			### there will be problems when par.env is not set, ignore now, only relevant for manual call of start.values()
-			Q0.temp.full <- Q0.temp
-			for (j in 1:dim(Q0.temp.full)[1]) {
-				for (k in 1:dim(Q0.temp.full)[2]) {
-					if( !is.null( Q0.par )      && !is.na( suppressWarnings( as.numeric( Q0.par[j,k] ) ) ) ) Q0.temp.full[j,k] <- as.numeric( Q0.par[j,k] )
+	
+				# MH 0.0.41 2024-05-27 new complete matrix to check complete starting value matrix for positive definiteness
+				### there will be problems when par.env is not set, ignore now, only relevant for manual call of start.values()
+				Q0.temp.full <- Q0.temp
+				for (j in 1:dim(Q0.temp.full)[1]) {
+					for (k in 1:dim(Q0.temp.full)[2]) {
+						if( !is.null( Q0.par )      && !is.na( suppressWarnings( as.numeric( Q0.par[j,k] ) ) ) ) Q0.temp.full[j,k] <- as.numeric( Q0.par[j,k] )
+					}
 				}
+				# check Q0 and its Cholesky factor for positive definiteness
+				check1 <- is_positive_definite( Q0.temp.full )
+				# if( !check1 ) stop( "jittered starting value Q0 matrix is not positive definite" )
+				Q0Chol.temp.full <- chol(Q0.temp.full)
+				check2 <- is_positive_definite( Q0Chol.temp.full )
+				# if( !check2 ) stop( "cholesky factor of jittered starting value Q0 matrix is not positive definite" )
+	
+				## check total variance and cholesky factor
+				# discrete-time autoregressive matrix
+				delta <- 1
+				Adelta <- expm( A0.temp * delta ) # TODO: add Achange
+				# discrete-time process error covariance matrix
+				Ah <- A0.temp %x% diag( F ) + diag( F ) %x% A0.temp
+				# ( Qdelta <- irow( solve( Ah ) %*% ( expm( Ah * delta ) - diag( F^2 ) ) %*% row( Q ) ) )
+				# asymptotic diffusion matrix
+				Sigmaw.temp <- irow( -1*solve( Ah ) %*% row(Q0.temp.full) )
+				# check3 <- is.positive.definite( Sigmaw.temp )
+				# if( !check3 ) stop( paste0( "chain ",i,": jittered starting value Sigmaw matrix is not positive definite" ) )
+				check3 <- is_positive_definite( Sigmaw.temp )
+				# if( !check4 ) stop( paste0( "chain ",i,": jittered starting value Sigmaw matrix is not positive definite (test 2)" ) )
+				SigmawChol.temp <- chol( Sigmaw.temp )
+				check4 <- is_positive_definite( SigmawChol.temp )
+				# if( !check5 ) stop( paste0( "chain ",i,": cholesky factor of jittered starting value Sigmaw matrix is not positive definite (test 2)" ) )
+				# if( verbose ){
+						# cat( paste0( "positive definite start values Sigmaw:\n" ) )
+						# print( Q0.temp.full )
+						# cat( paste0( "positive definite start values cholesky Sigmaw:\n" ) )
+						# print( Q0Chol.temp.full )
+						# cat( paste0( "----------------------------------------------------------------------------\n" ) )
+				# }			
+				
+				# init[[i]] <- list( "A0"=A0.temp, "Achange"=Achange.temp, "Q0"=Q0.temp )
+				init[[i]] <- sv.to.list( matrs=matrs, matr.suffix=".temp", env=environment() )
+				
+				if( all( c(check1,check2,check3,check4) ) ) {
+					keep.trying <- FALSE
+					if( verbose ) {
+						cat( "success\n" )
+						flush.console()
+					}
+				}
+				try <- try+1
 			}
-			# check Q0 and its Cholesky factor for positive definiteness
-			if( !is.positive.definite( Q0.temp.full ) ) stop( "jittered starting value Q0 matrix is not positive definite" )
-			Q0Chol.temp.full <- chol(Q0.temp.full)
-			if( !is.positive.definite( Q0Chol.temp.full ) ) stop( "cholesky factor of jittered starting value Q0 matrix is not positive definite" )
-			
-			# init[[i]] <- list( "A0"=A0.temp, "Achange"=Achange.temp, "Q0"=Q0.temp )
-			init[[i]] <- sv.to.list( matrs=matrs, matr.suffix=".temp", env=environment() )
+			if( keep.trying ) stop( paste0( "did not find jittered start values for Q0 for chain ", i, " after ", tries.max, " tries." ) )
 		}
 
 		if( verbose ){

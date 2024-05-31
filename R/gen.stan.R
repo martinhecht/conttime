@@ -207,6 +207,11 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	structure.dim          <- c( "matrix[F,F] A0", "matrix[F,F] Achange", "cov_matrix[F] Q0" ) # , "cov_matrix[F] Qchange", "matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ", "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,1] mu0", "matrix[F,1] muchange", "matrix[F,F] Sigmaepsmu", "matrix[F*F,F*F] SigmaepsA"
 	names( structure.dim ) <- c( "A0"            , "Achange"            , "Q0"               ) # , "Qchange"              , "SigmaepsQ"                            , "Delta"            , "Sigmaeps"              , "mu0"            , "muchange"            , "Sigmaepsmu"            , "SigmaepsA"                
 
+	# 0.0.45, cov_matrix[F] crashes for F=1
+	if( F==1 ) {
+		structure.dim["Q0"] <- "matrix[F,F] Q0"
+	}
+
 	if( between.mu ){
 		structure.dim <- c( structure.dim, "matrix[F,F] Sigmamu" )
 		names( structure.dim ) <- c( names( structure.dim )[-length(structure.dim)], "Sigmamu" )
@@ -239,10 +244,18 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		parameters.of.mixed.structures <- unique( parameters.of.mixed.structures[ is.na( suppressWarnings( as.numeric( parameters.of.mixed.structures ) ) ) ] )
 	}
 
+	# remove completely fixed structures from model parameters
+	if( any( tf <- structure.type %in% "fixed" ) ){
+		model.parameters <- model.parameters[!model.parameters %in% names( structure.type )[tf]]
+	}
+	if( length( model.parameters ) == 0 ) model.parameters <- NULL
+
 	# put model parameters on env to return
 	par.env <- new.env()
-	for( i in 1:length( model.parameters ) ){
-		assign( model.parameters[i], eval( parse( text=model.parameters[i] ) ), envir = par.env, inherits = FALSE, immediate=TRUE )
+	if( !is.null( model.parameters ) ){
+		for( i in 1:length( model.parameters ) ){
+			assign( model.parameters[i], eval( parse( text=model.parameters[i] ) ), envir = par.env, inherits = FALSE, immediate=TRUE )
+		}
 	}
 
 	if( verbose ){
@@ -420,12 +433,19 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 	# x <- c( x, paste0( "  matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQChol = cholesky_decompose( SigmaepsQ );" ) )
 	# MH 0.0.32 2024-05-10 no measurement model, both for Kalman Filter and regular estimation: set to small value
-	x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = diag_matrix(rep_vector(1e-10, I));" ) )
+	# 0.0.45, crashes for F=1, positive definiteness check fails for Sigmaeps = 1e-10
+	if( F==1 && I==1 ) { # in current implementation I is always 1
+		x <- c( x, paste0( "  matrix[I,I] Sigmaeps;" ) )
+		x <- c( x, paste0( "  Sigmaeps[1,1] = 1e-10;" ) )
+	} else {
+		x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = diag_matrix(rep_vector(1e-10, I));" ) )
+	}
 	# 0.0.29 2024-05-06, no mean
 	# x <- c( x, paste0( "  matrix[F,F] SigmaepsmuChol = cholesky_decompose( Sigmaepsmu );" ) )
 	if( between.mu ) x <- c( x, paste0( "  matrix[F,F] SigmamuChol = cholesky_decompose( Sigmamu );" ) )
 	# 0.0.29 2024-05-06, no measurement model <=== yjpT needs to be in, so no measurement model rather means setting measurement error to zero
-	x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
+	# 0.0.45, crashes for F=1, positive definiteness check fails for Sigmaeps = 1e-10
+	# x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
 	# At, Qt, mut
 	x <- c( x, paste0( "  // time-varying drift/diffusion/mu" ) )
 	x <- c( x, paste0( "  real At[F,F,Tunique];  // time-varying drift matrices" ) )
@@ -616,8 +636,14 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		for( i in 1:length(uniqueTj) ){
 			x <- c( x, paste0( "  real thetajpT",uniqueTj[i],"[F,1,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"]; // latent values of ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
 		}
-		x <- c( x, paste0( "  cov_matrix[F] P[T];" ) )
-		x <- c( x, paste0( "  cov_matrix[F] P_pred;" ) )
+		# 0.0.45, crashes for F=1, positive definiteness check fails for P and other cov_matrices
+		if( F==1 ) {
+			x <- c( x, paste0( "  matrix[F,F] P[T];" ) )
+			x <- c( x, paste0( "  matrix[F,F] P_pred;" ) )
+		} else {
+			x <- c( x, paste0( "  cov_matrix[F] P[T];" ) )
+			x <- c( x, paste0( "  cov_matrix[F] P_pred;" ) )
+		}
 		x <- c( x, paste0( "  matrix[F,F] K;" ) )
 		x <- c( x, paste0( "  vector[F] thetajp_pred;" ) )
 		x <- c( x, paste0( "  matrix[F,F] Astarjp;" ) )
@@ -773,9 +799,11 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	
 	A0.prior[] <- "normal(0,0.25)"
 	diag( A0.prior ) <- "normal(-0.69,0.25) T[,-1e-3]"
-	Achange.prior[] <- "normal(0,0.0625)"
-	Q0.prior[] <- "normal(0,25)"
-	diag( Q0.prior ) <- "inv_gamma(0.5,0.5)"
+	# Achange.prior[] <- "normal(0,0.0625)"
+	# MH 0.0.43
+	Achange.prior[] <- "normal(0,9)"
+	Q0.prior[] <- "normal(0,1)"
+	diag( Q0.prior ) <- "inv_gamma(3,1)"
 	
 	# get elements of prior.env and overwrite defaults
 	if( !is.null( prior.env ) ){

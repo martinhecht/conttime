@@ -1,4 +1,5 @@
 ## Changelog:
+# MH 0.0.44 2024-05-31 if M is scalar, put in matrix
 # MH 0.0.1 2022-05-31
 
 ## Documentation
@@ -11,7 +12,11 @@
 
 ## Function definition
 row <- function( M ){
-    if( ! ( is.matrix(M) && dim(M)[1] == dim(M)[2] && dim(M)[1]>0 ) ){
+
+	# MH 0.0.44 2024-05-31 if M is scalar, put in matrix
+	if( is.null( dim(M) ) ) M <- matrix( M, nrow=1, ncol=1 )
+	
+	if( ! ( is.matrix(M) && dim(M)[1] == dim(M)[2] && dim(M)[1]>0 ) ){
         rowM <- NULL
     } else {
         F <- dim(M)[1]
@@ -24,6 +29,9 @@ row <- function( M ){
     }
     return( rowM )
 }
+
+# potential TODO:
+# -- arrays that have dimensions with just 1, reduce to matrix
 
 ### development
 

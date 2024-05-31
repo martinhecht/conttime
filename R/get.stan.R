@@ -22,6 +22,11 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, sor
 	## parameters to extract
 	# model parameters
 	pars.list <- stn$model.parameters
+
+	# sanity check if all declared model parameters are in the results
+	all.par <- rownames( summary(fit)$summary )
+	avail.par <- do.call( "c", sapply( stn$model.parameters, function( x ) all.par[ grepl( paste0("^",x,"(\\[|$)"), all.par ) ], simplify=FALSE, USE.NAMES = FALSE ) )
+	pars.list <- avail.par 
 	
 	# transformed parameters
 	tf.pot <- c( "lp__", "thetajp", "At", "Qt", "Ajp", "Qjp", "Astarjp", "Qstarjp", "Sigmawjp" )
@@ -36,13 +41,13 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, sor
 	
 	if( !is.null( tf.list ) ){
 		# get all parameters
-		all.par <- rownames( summary(fit)$summary )
+		# all.par <- rownames( summary(fit)$summary )
 		tf2.list <- do.call( "c", sapply( tf.list, function( x ) all.par[ grepl( x, all.par ) ], simplify=FALSE, USE.NAMES = FALSE ) )
 		if( length( tf2.list ) > 0 ) pars.list <- c( pars.list, tf2.list )
 	}
 
 	# get estimates of model parameters
-	# est <- as.data.frame( summary(fit, pars = stn$model.parameters)$summary )
+	# est <- as.data.frame( summary(fit, pars = stn$model.parameters)$summary )	
 	est <- as.data.frame( summary(fit, pars = pars.list)$summary )
 	est$par <- rownames(est)
 	rownames(est) <- seq( along=rownames( est ) )
