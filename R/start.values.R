@@ -19,7 +19,7 @@
 start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, verbose=TRUE ){
 
 	# require packages
-	requireNamespace( "matrixcalc" )
+	# requireNamespace( "matrixcalc" )
 
 	## start values for parameters of mixed structures
 	# https://discourse.mc-stan.org/t/how-to-define-initial-values-in-stan-in-r/16855

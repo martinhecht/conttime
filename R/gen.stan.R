@@ -424,6 +424,25 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			}
 		}
 	}
+	# MH 0.0.47 matrix with small off-diagonal values to add to Sigmaw to increase computational stability
+	x <- c( x, paste0( "  // matrices with small off-diagonal values to add to other matrices to avoid positive definiteness check failures" ) )
+	x <- c( x, paste0( "  matrix[F,F] FFadd = diag_matrix(rep_vector(0,F));" ) )
+	x <- c( x, paste0( "  for (i in 1:F) {" ) )
+	x <- c( x, paste0( "    for (j in 1:F) {" ) )
+	x <- c( x, paste0( "      if (i != j) {" ) )
+	x <- c( x, paste0( "        FFadd[i,j] = FFadd[i,j] + 1e-10;" ) )
+	x <- c( x, paste0( "      }" ) )
+	x <- c( x, paste0( "    }" ) )
+	x <- c( x, paste0( "  }" ) )
+	# MH 0.0.48 analog for I
+	x <- c( x, paste0( "  matrix[I,I] IIadd = diag_matrix(rep_vector(0,I));" ) )
+	x <- c( x, paste0( "  for (i in 1:I) {" ) )
+	x <- c( x, paste0( "    for (j in 1:I) {" ) )
+	x <- c( x, paste0( "      if (i != j) {" ) )
+	x <- c( x, paste0( "        IIadd[i,j] = IIadd[i,j] + 1e-10;" ) )
+	x <- c( x, paste0( "      }" ) )
+	x <- c( x, paste0( "    }" ) )
+	x <- c( x, paste0( "  }" ) )	
 	# 0.0.47 commented out
 	# x <- c( x, paste0( "  // Cholesky decompositions" ) )
 	# x <- c( x, paste0( "  matrix[F,F] Q0Chol = cholesky_decompose( Q0 );" ) )
@@ -439,24 +458,14 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		x <- c( x, paste0( "  matrix[I,I] Sigmaeps;" ) )
 		x <- c( x, paste0( "  Sigmaeps[1,1] = 1e-10;" ) )
 	} else {
-		x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = diag_matrix(rep_vector(1e-10, I));" ) )
+		x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = IIadd + diag_matrix(rep_vector(1e-6, I));" ) )
 	}
-	# MH 0.0.47 matrix with small off-diagonal values to add to Sigmaw to increase computational stability
-	x <- c( x, paste0( "  matrix[F,F] FFadd = diag_matrix(rep_vector(0,F));" ) )
-	x <- c( x, paste0( "  for (i in 1:F) {" ) )
-	x <- c( x, paste0( "    for (j in 1:F) {" ) )
-	x <- c( x, paste0( "      if (i != j) {" ) )
-	x <- c( x, paste0( "        FFadd[i,j] = FFadd[i,j] + 1e-10;" ) )
-	x <- c( x, paste0( "      }" ) )
-	x <- c( x, paste0( "    }" ) )
-	x <- c( x, paste0( "  }" ) )
-	
 	# 0.0.29 2024-05-06, no mean
 	# x <- c( x, paste0( "  matrix[F,F] SigmaepsmuChol = cholesky_decompose( Sigmaepsmu );" ) )
 	if( between.mu ) x <- c( x, paste0( "  matrix[F,F] SigmamuChol = cholesky_decompose( Sigmamu );" ) )
 	# 0.0.29 2024-05-06, no measurement model <=== yjpT needs to be in, so no measurement model rather means setting measurement error to zero
 	# 0.0.45, crashes for F=1, positive definiteness check fails for Sigmaeps = 1e-10
-	# x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
+	x <- c( x, paste0( "  matrix[I,I] SigmaepsChol = cholesky_decompose( Sigmaeps );" ) )
 	# At, Qt, mut
 	x <- c( x, paste0( "  // time-varying drift/diffusion/mu" ) )
 	x <- c( x, paste0( "  real At[F,F,Tunique];  // time-varying drift matrices" ) )

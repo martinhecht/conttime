@@ -1,6 +1,5 @@
 import(mvtnorm)
 import(expm)
-import(matrixcalc)
 import(rstan)
 importFrom("utils", "flush.console")
 #exportPattern("^[[:alpha:]]+")
