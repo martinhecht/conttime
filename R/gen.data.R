@@ -194,7 +194,11 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 			# MH 0.0.30 2024-05-07, no epsAt
 			# epsAt[,,p] <- rmvnorm( 1, mean=zerovecF2, sigma=SigmaepsA )
 			# At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] + irow(epsAt[,,p,drop=FALSE]) ) ) ) )
-			At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] ) ) ) )
+			# At[,,p] <- irow( S1 %*% row( A0 + Achange*tunique[p] ) ) + irow( S2 %*% row( A0 * exp( -(Achange*tunique[p] ) ) ) )
+			# MH 0.0.46 without exp
+			# Ac <- row( A0 + Achange*tunique[p] )
+			# At[,,p] <- irow( S1 %*% Ac + S2 %*% Ac )
+			At[,,p] <- A0 + Achange*tunique[p]
 			# Eq. 3
 			# epsQt[,,p] <- rmvnorm( 1, mean=zerovecFF12, sigma=SigmaepsQ )
 			# Qt[,,p] <- irow( S1 %*% row( Q0 + Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) + irow( S2 %*% row( Q0 * exp( Qchange*tunique[p] + irow(S3%*%epsQt[,,p,drop=FALSE]) ) ) )
@@ -207,7 +211,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 			# 0.0.29 2024-05-06, no mean
 			# mut[,1,p] <- mu0 + muchange*tunique[p] + as.matrix( epsmut[,1,p,drop=FALSE] )
 		}
-		
+
 		# individualization
 		for( j in 1:N ){
 			# muj, Eq. 8

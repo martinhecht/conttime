@@ -449,6 +449,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# At, Qt, mut
 	x <- c( x, paste0( "  // time-varying drift/diffusion/mu" ) )
 	x <- c( x, paste0( "  real At[F,F,Tunique];  // time-varying drift matrices" ) )
+	# x <- c( x, paste0( "  vector[F] Ac;" ) )
 	x <- c( x, paste0( "  real Qt[F,F,Tunique];  // time-varying diffusion matrices" ) )
 	# 0.0.29 2024-05-06, no mean
 	# x <- c( x, paste0( "  real mut[F,1,Tunique]; // time-varying mean vectors" ) )
@@ -458,7 +459,11 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	x <- c( x, paste0( "        // Eq. 2" ) )
 	# x <- c( x, paste0( "        At[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( A0 + Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( A0 .* exp( -( Achange*tunique[p] + unflatten_vector_to_matrix( to_vector(epsAt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
 	# MH 0.0.30 2024-05-07, no epsAt
-	x <- c( x, paste0( "        At[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( A0 + Achange*tunique[p] ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( A0 .* exp( -( Achange*tunique[p] ) ) ), F,F)   )[i,k];" ) )
+	# MH 0.0.46 without exp
+	# x <- c( x, paste0( "        At[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( A0 + Achange*tunique[p] ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( A0 .* exp( -( Achange*tunique[p] ) ) ), F,F)   )[i,k];" ) )
+	# x <- c( x, paste0( "        Ac = flatten_matrix_rowwise( A0 + Achange*tunique[p] );" ) )
+	# x <- c( x, paste0( "        At[i,k,p] = unflatten_vector_to_matrix( S1*Ac + S2*Ac, F,F )[i,k];" ) )
+	x <- c( x, paste0( "        At[i,k,p] = (A0 + Achange*tunique[p])[i,k];" ) )
 	x <- c( x, paste0( "        // Eq. 3" ) )
 	# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 	# x <- c( x, paste0( "        Qt[i,k,p] = (  unflatten_vector_to_matrix( S1 * flatten_matrix_rowwise( Q0Chol*Q0Chol' + (QchangeChol*QchangeChol')*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ), F,F)   +   unflatten_vector_to_matrix( S2 * flatten_matrix_rowwise( (Q0Chol*Q0Chol') .* exp( -( (QchangeChol*QchangeChol')*tunique[p] + unflatten_vector_to_matrix( S3 * to_vector(epsQt[,1,p]),F,F ) ) ) ), F,F)   )[i,k];" ) )
