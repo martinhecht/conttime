@@ -82,9 +82,9 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 	diag( A0.sv ) <- -0.69
 	# Achange.sv[] <- 0
 	# MH 0.0.43
-	Achange.sv[] <- -0.1
-	diag(Achange.sv) <- -0.2
-	Q0.sv[] <- 0
+	Achange.sv[] <- 0
+	diag(Achange.sv) <- 0
+	Q0.sv[] <- 0.001
 	diag( Q0.sv ) <- 0.5		
 	
 	# get elements of start.values.env and overwrite defaults

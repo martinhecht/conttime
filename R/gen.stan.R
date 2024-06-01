@@ -424,8 +424,9 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			}
 		}
 	}
-	x <- c( x, paste0( "  // Cholesky decompositions" ) )
-	x <- c( x, paste0( "  matrix[F,F] Q0Chol = cholesky_decompose( Q0 );" ) )
+	# 0.0.47 commented out
+	# x <- c( x, paste0( "  // Cholesky decompositions" ) )
+	# x <- c( x, paste0( "  matrix[F,F] Q0Chol = cholesky_decompose( Q0 );" ) )
 	# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 	# x <- c( x, paste0( "  matrix[F,F] QchangeChol = cholesky_decompose( Qchange );" ) )
 	# MH 0.0.30 2024-05-07, no epsAt
@@ -440,6 +441,16 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	} else {
 		x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = diag_matrix(rep_vector(1e-10, I));" ) )
 	}
+	# MH 0.0.47 matrix with small off-diagonal values to add to Sigmaw to increase computational stability
+	x <- c( x, paste0( "  matrix[F,F] FFadd = diag_matrix(rep_vector(0,F));" ) )
+	x <- c( x, paste0( "  for (i in 1:F) {" ) )
+	x <- c( x, paste0( "    for (j in 1:F) {" ) )
+	x <- c( x, paste0( "      if (i != j) {" ) )
+	x <- c( x, paste0( "        FFadd[i,j] = FFadd[i,j] + 1e-10;" ) )
+	x <- c( x, paste0( "      }" ) )
+	x <- c( x, paste0( "    }" ) )
+	x <- c( x, paste0( "  }" ) )
+	
 	# 0.0.29 2024-05-06, no mean
 	# x <- c( x, paste0( "  matrix[F,F] SigmaepsmuChol = cholesky_decompose( Sigmaepsmu );" ) )
 	if( between.mu ) x <- c( x, paste0( "  matrix[F,F] SigmamuChol = cholesky_decompose( Sigmamu );" ) )
@@ -577,7 +588,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
 			x <- c( x, paste0( "      for (i in 1:F){" ) )
 			x <- c( x, paste0( "        for (k in 1:F){" ) )
-			x <- c( x, paste0( "          SigmawjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
+			x <- c( x, paste0( "          SigmawjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = FFadd[i,k] + unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F)[i,k];" ) )
 			x <- c( x, paste0( "        }" ) )
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
@@ -609,7 +620,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
 			x <- c( x, paste0( "      for (i in 1:F){" ) )
 			x <- c( x, paste0( "        for (k in 1:F){" ) )
-			x <- c( x, paste0( "          SigmawjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])) * flatten_matrix_rowwise(to_matrix(QjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])),F,F)[i,k];" ) )
+			x <- c( x, paste0( "          SigmawjpFirstTimepointT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1] = FFadd[i,k] + unflatten_vector_to_matrix(-1*inverse(to_matrix(AhashjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])) * flatten_matrix_rowwise(to_matrix(QjpFirstTimepointT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",1])),F,F)[i,k];" ) )
 			x <- c( x, paste0( "        }" ) )
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
@@ -684,7 +695,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			x <- c( x, paste0( "      Ahashjp = kronecker_product(Ajp,IF) + kronecker_product(IF,Ajp);" ) )
 			x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
 			# x <- c( x, paste0( "      Sigmawjp = unflatten_vector_to_matrix(-1*inverse(Ahashjp) * flatten_matrix_rowwise(to_matrix(QjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])),F,F);" ) )
-			x <- c( x, paste0( "      Sigmawjp = unflatten_vector_to_matrix(-1*inverse(Ahashjp) * flatten_matrix_rowwise(Qjp) ,F,F);" ) )
+			x <- c( x, paste0( "      Sigmawjp = FFadd + unflatten_vector_to_matrix(-1*inverse(Ahashjp) * flatten_matrix_rowwise(Qjp) ,F,F);" ) )
 			x <- c( x, paste0( "      // Sigmawjp Cholesky" ) )
 			x <- c( x, paste0( "      SigmawjpChol = cholesky_decompose( Sigmawjp );" ) )
 			x <- c( x, paste0( "      // Qstarjp, Eq. 13" ) )
