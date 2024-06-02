@@ -456,7 +456,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# 0.0.45, crashes for F=1, positive definiteness check fails for Sigmaeps = 1e-10
 	if( F==1 && I==1 ) { # in current implementation I is always 1
 		x <- c( x, paste0( "  matrix[I,I] Sigmaeps;" ) )
-		x <- c( x, paste0( "  Sigmaeps[1,1] = 1e-10;" ) )
+		x <- c( x, paste0( "  Sigmaeps[1,1] = 1e-6;" ) )
 	} else {
 		x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = IIadd + diag_matrix(rep_vector(1e-6, I));" ) )
 	}

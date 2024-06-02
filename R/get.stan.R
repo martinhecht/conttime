@@ -22,11 +22,19 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, sor
 	## parameters to extract
 	# model parameters
 	pars.list <- stn$model.parameters
-
+	
+	# check wheter fit object is from stan/mcmc or optimizing/ml
+	tried <- try( summary(fit)$summary, silent=TRUE )
+	mcmc <- ifelse( inherits( tried, "try-error" ), FALSE, TRUE )
+	
 	# sanity check if all declared model parameters are in the results
-	all.par <- rownames( summary(fit)$summary )
+	if( mcmc ){
+		all.par <- rownames( summary(fit)$summary )
+	} else {
+		all.par <- names( fit$par )
+	}
 	avail.par <- do.call( "c", sapply( stn$model.parameters, function( x ) all.par[ grepl( paste0("^",x,"(\\[|$)"), all.par ) ], simplify=FALSE, USE.NAMES = FALSE ) )
-	pars.list <- avail.par 
+	pars.list <- avail.par
 	
 	# transformed parameters
 	tf.pot <- c( "lp__", "thetajp", "At", "Qt", "Ajp", "Qjp", "Astarjp", "Qstarjp", "Sigmawjp" )
@@ -48,8 +56,13 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, sor
 
 	# get estimates of model parameters
 	# est <- as.data.frame( summary(fit, pars = stn$model.parameters)$summary )	
-	est <- as.data.frame( summary(fit, pars = pars.list)$summary )
-	est$par <- rownames(est)
+	if( mcmc ){	
+		est <- as.data.frame( summary(fit, pars = pars.list)$summary )
+		est$par <- rownames(est)
+	} else {
+		est <- data.frame( "par"=names(fit$par), "mean"=fit$par )
+		est <- est[ est$par %in% pars.list, ]
+	}
 	rownames(est) <- seq( along=rownames( est ) )
 
 	# free/fixed values
