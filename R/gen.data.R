@@ -212,6 +212,10 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 			# mut[,1,p] <- mu0 + muchange*tunique[p] + as.matrix( epsmut[,1,p,drop=FALSE] )
 		}
 
+		# matrix with small values
+		F2F2add <- matrix( 1e-10, F^2, F^2 )
+		diag( F2F2add ) <- 0
+
 		# individualization
 		for( j in 1:N ){
 			# muj, Eq. 8
@@ -227,7 +231,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 					# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]]
 				# }
 				# Ahash, Eq. 14
-				Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
+				Ahashjp[,,j,p] <- F2F2add + Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
 				# Sigmaw, Eq. 14
 				Sigmawjp[,,j,p] <- irow( -solve( Ahashjp[,,j,p] ) %*% row(Qjp[,,j,p]) )
 			}
@@ -240,6 +244,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 				Astarjp[,,j,p] <- expm( as.matrix( Ajp[,,j,p] * deltajp[j,p] ) )
 				# Qstarjp, Eq. 13
 				Qstarjp[,,j,p] <- irow( -( expm( as.matrix( Ahashjp[,,j,p] * deltajp[j,p] ) ) - IF2 ) %*% row( Sigmawjp[,,j,p] ) )			
+				if( !isSymmetric( Qstarjp[,,j,p] ) ) Qstarjp[,,j,p] <- round( Qstarjp[,,j,p], 5 )
 			}
 		}
 

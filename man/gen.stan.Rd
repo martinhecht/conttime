@@ -9,9 +9,10 @@ gen.stan(
   syntax.dir = getwd(),
   model_name = "model",
   model.parameters.env = NULL,
+  include.priors = TRUE,
   prior.env = NULL,
   chains = NULL,
-  KF = TRUE,
+  KF = FALSE,
   verbose = TRUE
 )
 }
@@ -23,6 +24,8 @@ gen.stan(
 \item{model_name}{name of the model, used to name the Stan file as <model_name>.stan}
 
 \item{model.parameters.env}{an environment containing declarations of model parameters in the matrices A0, Achange, and Q0; if \code{NULL}, the default parameterization is used}
+
+\item{include.priors}{a logical value whether priors are added to the Stan code or not}
 
 \item{prior.env}{an environment containing priors for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default priors are used}
 
