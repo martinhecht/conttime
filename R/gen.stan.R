@@ -166,7 +166,8 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# Q0[] <- 0
 	# diag(Q0) <- NA
 	# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
-	Q0[] <- 0
+	# MH 0.0.51, set from 0 to 0.001
+	Q0[] <- 0.001
 	diag(Q0) <- NA
 	# MH 0.0.28 2024-05-04 Q covariance fixed to 0
 	# Q0[1,2] <- Q0[2,1] <- 0
