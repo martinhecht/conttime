@@ -4,7 +4,13 @@
 \alias{gen.data}
 \title{Generate data}
 \usage{
-gen.data(design.env, seed = "random", value.env = NULL, verbose = TRUE)
+gen.data(
+  design.env,
+  seed = "random",
+  value.env = NULL,
+  gen.data = TRUE,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{design.env}{an environment containing objects created by the \code{gen.design()} function}
@@ -12,6 +18,8 @@ gen.data(design.env, seed = "random", value.env = NULL, verbose = TRUE)
 \item{seed}{a number used as the seed for \code{set.seed(seed)} or the value "random" for the random generation of a seed}
 
 \item{value.env}{an environment containing the true values of the matrices A0, Achange, and Q0 for data generation; if \code{NULL}, default values are used}
+
+\item{gen.data}{a logical value indicating whether to generate data}
 
 \item{verbose}{a logical value indicating whether to print detailed messages and progress updates during the execution of the function}
 }

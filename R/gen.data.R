@@ -7,16 +7,20 @@
 #' @param design.env an environment containing objects created by the \code{gen.design()} function
 #' @param seed a number used as the seed for \code{set.seed(seed)} or the value "random" for the random generation of a seed
 #' @param value.env an environment containing the true values of the matrices A0, Achange, and Q0 for data generation; if \code{NULL}, default values are used
+#' @param gen.data a logical value indicating whether to generate data
 #' @param verbose a logical value indicating whether to print detailed messages and progress updates during the execution of the function
 #' @return An environment is returned containing design characteristics, generated time points, and generated data. Use \code{ls(envir=<returned environment>)} to view its contents.
 
 ## Function definition
-gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
+gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
 		# between.mu <- TRUE
 
+		# matrix properties data frame
+		mp <- data.frame( "matrix"=NA, "symmetric"=NA, "posdef"=NA, "posdef2"=NA, "possemidef"=NA, "kappa"=NA, "minSVD"=NA, "maxSVD"=NA, "eigenvaluespread"=NA, "rank"=NA, "fullrank"=NA )
+		mp <- mp[-1,,drop=FALSE]
 
 		### based on tvct_v1.pdf (2024-04-04)
 
@@ -215,7 +219,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 		# matrix with small values
 		F2F2add <- matrix( 1e-10, F^2, F^2 )
 		diag( F2F2add ) <- 0
-
+		
 		# individualization
 		for( j in 1:N ){
 			# muj, Eq. 8
@@ -231,9 +235,39 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 					# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]]
 				# }
 				# Ahash, Eq. 14
-				Ahashjp[,,j,p] <- F2F2add + Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
+				Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
 				# Sigmaw, Eq. 14
 				Sigmawjp[,,j,p] <- irow( -solve( Ahashjp[,,j,p] ) %*% row(Qjp[,,j,p]) )
+
+				### check matrix properties of Sigmawjp[,,j,p]
+				ind <- nrow( mp ) + 1
+				mp[ind,"matrix"] <- paste0( "Sigmawjp[,,",j,",",p,"]" )
+				# symmetric
+				mp[ind,"symmetric"] <- isSymmetric( Sigmawjp[,,j,p] )
+				# positive definiteness
+				mp[ind,"posdef"] <- is_positive_definite( Sigmawjp[,,j,p] )
+				mp[ind,"posdef2"] <- is_positive_definite2( Sigmawjp[,,j,p] )
+				# positive semi-definiteness
+				mp[ind,"possemidef"] <- is_positive_semi_definite( Sigmawjp[,,j,p] )
+				# condition number
+				mp[ind,"kappa"] <- kappa( Sigmawjp[,,j,p] )
+				# minimal/maximal Singular Value Decomposition (SVD)
+				mp[ind,"minSVD"] <- min( svd( Sigmawjp[,,j,p] )$d )
+				mp[ind,"maxSVD"] <- max( svd( Sigmawjp[,,j,p] )$d )
+				# eigenvalues spread
+				eigenvalues <- eigen( Sigmawjp[,,j,p] )$values
+				mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+				# rank
+				mp[ind,"rank"] <- qr( Sigmawjp[,,j,p] )$rank
+				# full rank
+				mp[ind,"fullrank"] <- qr( Sigmawjp[,,j,p] )$rank == F
+								
+				# add F2F2add
+				Ahashjp[,,j,p] <- Ahashjp[,,j,p] + F2F2add
+				# Sigmaw, Eq. 14
+				Sigmawjp[,,j,p] <- irow( -solve( Ahashjp[,,j,p] ) %*% row(Qjp[,,j,p]) )
+				
+				
 			}
 		}
 
@@ -244,34 +278,60 @@ gen.data <- function( design.env, seed="random", value.env=NULL, verbose=TRUE ){
 				Astarjp[,,j,p] <- expm( as.matrix( Ajp[,,j,p] * deltajp[j,p] ) )
 				# Qstarjp, Eq. 13
 				Qstarjp[,,j,p] <- irow( -( expm( as.matrix( Ahashjp[,,j,p] * deltajp[j,p] ) ) - IF2 ) %*% row( Sigmawjp[,,j,p] ) )			
+
+				### check matrix properties of Qstarjp[,,j,p]
+				ind <- nrow( mp ) + 1
+				mp[ind,"matrix"] <- paste0( "Qstarjp[,,",j,",",p,"]" )
+				# symmetric
+				mp[ind,"symmetric"] <- isSymmetric( Qstarjp[,,j,p] )
+				# positive definiteness
+				mp[ind,"posdef"] <- is_positive_definite( Qstarjp[,,j,p] )
+				mp[ind,"posdef2"] <- is_positive_definite2( Qstarjp[,,j,p] )
+				# positive semi-definiteness
+				mp[ind,"possemidef"] <- is_positive_semi_definite( Qstarjp[,,j,p] )
+				# condition number
+				mp[ind,"kappa"] <- kappa( Qstarjp[,,j,p] )
+				# minimal/maximal Singular Value Decomposition (SVD)
+				mp[ind,"minSVD"] <- min( svd( Qstarjp[,,j,p] )$d )
+				mp[ind,"maxSVD"] <- max( svd( Qstarjp[,,j,p] )$d )
+				# eigenvalues spread
+				eigenvalues <- eigen( Qstarjp[,,j,p] )$values
+				mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+				# rank
+				mp[ind,"rank"] <- qr( Qstarjp[,,j,p] )$rank
+				# full rank
+				mp[ind,"fullrank"] <- qr( Qstarjp[,,j,p] )$rank == F				
+				
 				if( !isSymmetric( Qstarjp[,,j,p] ) ) Qstarjp[,,j,p] <- round( Qstarjp[,,j,p], 5 )
 			}
 		}
 
-		for( j in 1:N ){
-			# theta, first time point, Eq. 17
-			# thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,1,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
-			# 0.0.29 2024-05-06, no mean
-			# MH 0.0.44 2024-05-31, as.matrix needed for F=1
-			thetajp[,1,j,1] <- rmvnorm( 1, mean=zerovecF, sigma=as.matrix( Sigmawjp[,,j,1] ) )
-			for( p in 2:Tj[j] ){
-				# omegajp, Eq. 15
-				omegajp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=as.matrix( Qstarjp[,,j,p-1] ) )
-				# thetajp, Eq. 16
-				# thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + ( IF - Astarjp[,,j,p-1] ) %*% as.matrix( mujp[,1,j,p,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
+		if( gen.data ){
+			for( j in 1:N ){
+				# theta, first time point, Eq. 17
+				# thetajp[,1,j,1] <- rmvnorm( 1, mean=as.matrix( mujp[,1,j,1,drop=FALSE] ), sigma=Sigmawjp[,,j,1] )
 				# 0.0.29 2024-05-06, no mean
-				thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
+				# MH 0.0.44 2024-05-31, as.matrix needed for F=1
+				thetajp[,1,j,1] <- rmvnorm( 1, mean=zerovecF, sigma=as.matrix( Sigmawjp[,,j,1] ) )
+				for( p in 2:Tj[j] ){
+					# omegajp, Eq. 15
+					omegajp[,1,j,p] <- rmvnorm( 1, mean=zerovecF, sigma=as.matrix( Qstarjp[,,j,p-1] ) )
+					# thetajp, Eq. 16
+					# thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + ( IF - Astarjp[,,j,p-1] ) %*% as.matrix( mujp[,1,j,p,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
+					# 0.0.29 2024-05-06, no mean
+					thetajp[,1,j,p] <- Astarjp[,,j,p-1] %*% as.matrix( thetajp[,1,j,p-1,drop=FALSE] ) + as.matrix( omegajp[,1,j,p,drop=FALSE] )
+				}
 			}
-		}
-		
-		for( j in 1:N ){
-			for( p in 1:Tj[j] ){
-				# measurement error, Eq. 19
-				# epsjp[,1,j,p] <- rmvnorm( 1, mean=zerovecI, sigma=Sigmaeps )
-				# responses, Eq. 18
-				# yjp[,1,j,p] <- Delta %*% as.matrix( thetajp[,1,j,p,drop=FALSE] ) + as.matrix( epsjp[,1,j,p,drop=FALSE] )
-				# MH 0.0.29 2024-05-06, no measurement model
-				yjp[,1,j,p] <- as.matrix( thetajp[,1,j,p,drop=FALSE] )
+			
+			for( j in 1:N ){
+				for( p in 1:Tj[j] ){
+					# measurement error, Eq. 19
+					# epsjp[,1,j,p] <- rmvnorm( 1, mean=zerovecI, sigma=Sigmaeps )
+					# responses, Eq. 18
+					# yjp[,1,j,p] <- Delta %*% as.matrix( thetajp[,1,j,p,drop=FALSE] ) + as.matrix( epsjp[,1,j,p,drop=FALSE] )
+					# MH 0.0.29 2024-05-06, no measurement model
+					yjp[,1,j,p] <- as.matrix( thetajp[,1,j,p,drop=FALSE] )
+				}
 			}
 		}
 

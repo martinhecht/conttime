@@ -4,7 +4,7 @@
 ## Documentation
 #' @title Set starting values
 #' @description Set starting values for estimation with Stan
-#' @param F number of processes (variables), must be >= 1
+#' @param data.env an environment containing objects created by the \code{gen.data()} and \code{gen.design()} functions
 #' @param chains number of chains for estimation with Stan
 #' @param start.values.env an environment containing start values for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default start values are used
 #' @param jitter a logical value indicating whether start values should be jittered to provide different start values for each chain
@@ -16,7 +16,9 @@
 #' @return Either the \code{init} object for the \code{stan} function when \code{return.init.only=TRUE}, or a list containing \code{init}, \code{seed.jitter.sv}, and \code{sv} when \code{return.init.only=FALSE}.
 
 ## Function definition
-start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, verbose=TRUE ){
+start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, verbose=TRUE ){
+
+	F <- get("F", envir=data.env )
 
 	# require packages
 	# requireNamespace( "matrixcalc" )
@@ -231,10 +233,11 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 
 		# generate jittered start values
 		init <- sapply( 1:chains, function(x) NULL, simplify=FALSE )
-		if( verbose ) cat( paste0( "trying to generate jittered start values for Q0\n" ) )
+		if( verbose ) cat( paste0( "trying to generate jittered start values\n" ) )
 		for( i in 1:chains ){
 			keep.trying <- TRUE
-			tries.max <- 100
+			tries.max <- 10000
+			fac <- 3
 			try <- 1
 			while( keep.trying && try <= tries.max ){
 				if( verbose ) {
@@ -300,17 +303,41 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 				
 				# init[[i]] <- list( "A0"=A0.temp, "Achange"=Achange.temp, "Q0"=Q0.temp )
 				init[[i]] <- sv.to.list( matrs=matrs, matr.suffix=".temp", env=environment() )
+
+				## get matrix properties of Sigmawjp and Qstarjp
+				temp.env <- new.env()
+				assign( "A0"     , A0.temp, envir = temp.env, inherits = FALSE, immediate=TRUE )
+				assign( "Achange", Achange.temp, envir = temp.env, inherits = FALSE, immediate=TRUE )	
+				assign( "Q0"     , Q0.temp.full, envir = temp.env, inherits = FALSE, immediate=TRUE )
+	
+				mp.env <- gen.data( design.env=data.env, value.env=temp.env, gen.data=FALSE, verbose=FALSE )				
+				mp <- get( "mp", envir=mp.env )
 				
-				if( all( c(check1,check2,check3,check4) ) ) {
+				# all matrices must be symmetric, pos def, pos semi def anf with full rank
+				check5 <- all( all( mp$symmetric ), all( mp$posdef ), all( mp$posdef2 ), all( mp$possemidef ), all( mp$fullrank ) )
+
+				# relative criteria
+				mp1 <- mp[ grepl("Sigmawjp",mp$matrix),]
+				check6 <- all( mp1$kappa <= mean(mp1$kappa) + fac*sd(mp1$kappa) )
+				check7 <- all( mp1$minSVD >= mean(mp1$minSVD) - fac*sd(mp1$minSVD) )
+				check8 <- all( mp1$maxSVD >= mean(mp1$maxSVD) - fac*sd(mp1$maxSVD) )
+				check9 <- all( mp1$eigenvaluespread <= mean(mp1$eigenvaluespread) + fac*sd(mp1$eigenvaluespread) )
+				mp2 <- mp[ grepl("Qstarjp",mp$matrix),]
+				check10 <- all( mp2$kappa <= mean(mp2$kappa) + fac*sd(mp2$kappa) )
+				check11 <- all( mp2$minSVD >= mean(mp2$minSVD) - fac*sd(mp2$minSVD) )
+				check12 <- all( mp2$maxSVD >= mean(mp2$maxSVD) - fac*sd(mp2$maxSVD) )
+				check13 <- all( mp2$eigenvaluespread <= mean(mp2$eigenvaluespread) + fac*sd(mp2$eigenvaluespread) )
+		
+				if( all( c(check1,check2,check3,check4,check5,check6,check7,check8,check9,check10,check11,check12,check13) ) ) {
 					keep.trying <- FALSE
 					if( verbose ) {
-						cat( "success\n" )
+						cat( paste0( "\nsuccess (after ",try," iterations)","\n" ) )
 						flush.console()
 					}
 				}
 				try <- try+1
 			}
-			if( keep.trying ) stop( paste0( "did not find jittered start values for Q0 for chain ", i, " after ", tries.max, " tries." ) )
+			if( keep.trying ) stop( paste0( "did not find jittered start values for chain ", i, " after ", tries.max, " tries." ) )
 		}
 
 		if( verbose ){
@@ -322,6 +349,7 @@ start.values <- function( F=2, chains=1, start.values.env=NULL, jitter=TRUE, jit
 					print( init[[i]][[par]] )
 				}
 			}
+			flush.console()
 		}
 	
 	}

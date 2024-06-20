@@ -5,7 +5,7 @@
 \title{Set starting values}
 \usage{
 \method{start}{values}(
-  F = 2,
+  data.env,
   chains = 1,
   start.values.env = NULL,
   jitter = TRUE,
@@ -17,7 +17,7 @@
 )
 }
 \arguments{
-\item{F}{number of processes (variables), must be >= 1}
+\item{data.env}{an environment containing objects created by the \code{gen.data()} and \code{gen.design()} functions}
 
 \item{chains}{number of chains for estimation with Stan}
 

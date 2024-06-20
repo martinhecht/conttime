@@ -167,7 +167,8 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# diag(Q0) <- NA
 	# MH 0.0.27 2024-05-04 Q0 is Q (not time-varying)
 	# MH 0.0.51, set from 0 to 0.001
-	Q0[] <- 0.001
+	# MH 0.0.52, set from 0.001 to 1e-10
+	Q0[] <- 1e-10
 	diag(Q0) <- NA
 	# MH 0.0.28 2024-05-04 Q covariance fixed to 0
 	# Q0[1,2] <- Q0[2,1] <- 0
@@ -1193,7 +1194,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		jitter <- TRUE
 	}
 
-	inits <- start.values( F=F, chains=chains, jitter=jitter, par.env=par.env, return.init.only=FALSE, verbose=verbose ) # always call with return.init.only=FALSE as this will return a list that is used in the next steps
+	inits <- start.values( data.env=data.env, chains=chains, jitter=jitter, par.env=par.env, return.init.only=FALSE, verbose=verbose ) # always call with return.init.only=FALSE as this will return a list that is used in the next steps
 
 	# return
 	ret <- list( "data"=dat, "file"=syntax.path, "model_name"=model_name, "init"=inits$init, "model.parameters"=model.parameters, "par.env"=par.env, "prior.env"=used.prior.env, "sv"=inits$sv, "seed.jitter.sv"=inits$seed.jitter.sv ) # "start.values.env"=used.start.values.env
