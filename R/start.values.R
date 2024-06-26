@@ -321,12 +321,20 @@ start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE
 				check6 <- all( mp1$kappa <= mean(mp1$kappa) + fac*sd(mp1$kappa) )
 				check7 <- all( mp1$minSVD >= mean(mp1$minSVD) - fac*sd(mp1$minSVD) )
 				check8 <- all( mp1$maxSVD >= mean(mp1$maxSVD) - fac*sd(mp1$maxSVD) )
-				check9 <- all( mp1$eigenvaluespread <= mean(mp1$eigenvaluespread) + fac*sd(mp1$eigenvaluespread) )
+				if( any( is.na( mp1$eigenvaluespread ) ) ){
+					check9 <- FALSE
+				} else {
+					check9 <- all( mp1$eigenvaluespread <= mean(mp1$eigenvaluespread) + fac*sd(mp1$eigenvaluespread) )
+				}
 				mp2 <- mp[ grepl("Qstarjp",mp$matrix),]
 				check10 <- all( mp2$kappa <= mean(mp2$kappa) + fac*sd(mp2$kappa) )
 				check11 <- all( mp2$minSVD >= mean(mp2$minSVD) - fac*sd(mp2$minSVD) )
 				check12 <- all( mp2$maxSVD >= mean(mp2$maxSVD) - fac*sd(mp2$maxSVD) )
-				check13 <- all( mp2$eigenvaluespread <= mean(mp2$eigenvaluespread) + fac*sd(mp2$eigenvaluespread) )
+				if( any( is.na( mp2$eigenvaluespread ) ) ){
+					check13 <- FALSE
+				} else {				
+					check13 <- all( mp2$eigenvaluespread <= mean(mp2$eigenvaluespread) + fac*sd(mp2$eigenvaluespread) )
+				}
 		
 				if( all( c(check1,check2,check3,check4,check5,check6,check7,check8,check9,check10,check11,check12,check13) ) ) {
 					keep.trying <- FALSE

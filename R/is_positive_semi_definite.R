@@ -13,9 +13,14 @@
 is_positive_semi_definite <- function( m, tol=1e-10 ){
 
 	eigenvalues <- eigen(m)$values
-	ipsd <- all(eigenvalues >= -tol)
 	
-	return( ipsd )
+	# Check for complex eigenvalues
+	if (any(Im(eigenvalues) != 0)) {
+		ret <- FALSE
+	} else {
+		ret <- all(eigenvalues >= -tol)
+	}
+	return( ret )
 }
 
 

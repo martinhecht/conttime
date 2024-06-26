@@ -236,6 +236,12 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 				# }
 				# Ahash, Eq. 14
 				Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
+				
+				# if not positive definite add F2F2add
+				if( !is_positive_definite2( Ahashjp[,,j,p] ) ){
+					Ahashjp[,,j,p] <- Ahashjp[,,j,p] + F2F2add
+				}
+				
 				# Sigmaw, Eq. 14
 				Sigmawjp[,,j,p] <- irow( -solve( Ahashjp[,,j,p] ) %*% row(Qjp[,,j,p]) )
 
@@ -256,17 +262,15 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 				mp[ind,"maxSVD"] <- max( svd( Sigmawjp[,,j,p] )$d )
 				# eigenvalues spread
 				eigenvalues <- eigen( Sigmawjp[,,j,p] )$values
-				mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+				if (any(Im(eigenvalues) != 0)) {
+					mp[ind,"eigenvaluespread"] <- NA
+				} else {
+					mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+				}
 				# rank
 				mp[ind,"rank"] <- qr( Sigmawjp[,,j,p] )$rank
 				# full rank
 				mp[ind,"fullrank"] <- qr( Sigmawjp[,,j,p] )$rank == F
-								
-				# add F2F2add
-				Ahashjp[,,j,p] <- Ahashjp[,,j,p] + F2F2add
-				# Sigmaw, Eq. 14
-				Sigmawjp[,,j,p] <- irow( -solve( Ahashjp[,,j,p] ) %*% row(Qjp[,,j,p]) )
-				
 				
 			}
 		}
@@ -296,13 +300,23 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 				mp[ind,"maxSVD"] <- max( svd( Qstarjp[,,j,p] )$d )
 				# eigenvalues spread
 				eigenvalues <- eigen( Qstarjp[,,j,p] )$values
-				mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+				if (any(Im(eigenvalues) != 0)) {
+					mp[ind,"eigenvaluespread"] <- NA
+				} else {
+					mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+				}
 				# rank
 				mp[ind,"rank"] <- qr( Qstarjp[,,j,p] )$rank
 				# full rank
 				mp[ind,"fullrank"] <- qr( Qstarjp[,,j,p] )$rank == F				
 				
-				if( !isSymmetric( Qstarjp[,,j,p] ) ) Qstarjp[,,j,p] <- round( Qstarjp[,,j,p], 5 )
+				make_symmetric <- function(mat) {
+					return((mat + t(mat)) / 2)
+				}
+				if( !isSymmetric( Qstarjp[,,j,p] ) ) {
+					# Qstarjp[,,j,p] <- round( Qstarjp[,,j,p], 5 )
+					Qstarjp[,,j,p] <- make_symmetric( Qstarjp[,,j,p] )
+				}
 			}
 		}
 
