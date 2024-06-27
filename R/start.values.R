@@ -1,4 +1,5 @@
 ## Changelog:
+# MH 0.0.53 2024-06-28, now also full A0 and full Achange (i.e., with fixed values)
 # MH 2024-05-19: set up
 
 ## Documentation
@@ -276,13 +277,27 @@ start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE
 				Q0Chol.temp.full <- chol(Q0.temp.full)
 				check2 <- is_positive_definite( Q0Chol.temp.full )
 				# if( !check2 ) stop( "cholesky factor of jittered starting value Q0 matrix is not positive definite" )
+
+				# MH 0.0.53 2024-06-28, now also full A0 and full Achange (i.e., with fixed values)
+				A0.temp.full <- A0.temp
+				for (j in 1:dim(A0.temp.full)[1]) {
+					for (k in 1:dim(A0.temp.full)[2]) {
+						if( !is.null( A0.par )      && !is.na( suppressWarnings( as.numeric( A0.par[j,k] ) ) ) ) A0.temp.full[j,k] <- as.numeric( A0.par[j,k] )
+					}
+				}
+				Achange.temp.full <- Achange.temp
+				for (j in 1:dim(Achange.temp.full)[1]) {
+					for (k in 1:dim(Achange.temp.full)[2]) {
+						if( !is.null( Achange.par )      && !is.na( suppressWarnings( as.numeric( Achange.par[j,k] ) ) ) ) Achange.temp.full[j,k] <- as.numeric( Achange.par[j,k] )
+					}
+				}
 	
 				## check total variance and cholesky factor
 				# discrete-time autoregressive matrix
 				delta <- 1
-				Adelta <- expm( A0.temp * delta ) # TODO: add Achange
+				Adelta <- expm( A0.temp.full * delta ) # TODO: add Achange
 				# discrete-time process error covariance matrix
-				Ah <- A0.temp %x% diag( F ) + diag( F ) %x% A0.temp
+				Ah <- A0.temp.full %x% diag( F ) + diag( F ) %x% A0.temp.full
 				# ( Qdelta <- irow( solve( Ah ) %*% ( expm( Ah * delta ) - diag( F^2 ) ) %*% row( Q ) ) )
 				# asymptotic diffusion matrix
 				Sigmaw.temp <- irow( -1*solve( Ah ) %*% row(Q0.temp.full) )
@@ -306,8 +321,8 @@ start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE
 
 				## get matrix properties of Sigmawjp and Qstarjp
 				temp.env <- new.env()
-				assign( "A0"     , A0.temp, envir = temp.env, inherits = FALSE, immediate=TRUE )
-				assign( "Achange", Achange.temp, envir = temp.env, inherits = FALSE, immediate=TRUE )	
+				assign( "A0"     , A0.temp.full, envir = temp.env, inherits = FALSE, immediate=TRUE )
+				assign( "Achange", Achange.temp.full, envir = temp.env, inherits = FALSE, immediate=TRUE )	
 				assign( "Q0"     , Q0.temp.full, envir = temp.env, inherits = FALSE, immediate=TRUE )
 	
 				mp.env <- gen.data( design.env=data.env, value.env=temp.env, gen.data=FALSE, verbose=FALSE )				
