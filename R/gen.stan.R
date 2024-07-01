@@ -461,6 +461,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	x <- c( x, paste0( "real n_not_pos_def=0;" ) )
 	x <- c( x, paste0( "real n_not_symmetric=0;" ) )
 	x <- c( x, paste0( "real n_has_nan=0;" ) )
+	x <- c( x, paste0( "real n_Ahash_not_symmetric=0;" ) )
 
 	# mixed structures go in as transformed parameters
 	if( length( wimis ) > 0 ){
@@ -524,17 +525,25 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	} else {
 		x <- c( x, paste0( "  cov_matrix[I] Sigmaeps = IIadd + diag_matrix(rep_vector(1e-3, I));" ) )
 	}
-	# not_pos_def_replace_matrix
-	x <- c( x, paste0( "  // not_pos_def_replace_matrix" ) )
+	# Sigmawjp_not_pos_def_replace_matrix
+	x <- c( x, paste0( "  // Sigmawjp_not_pos_def_replace_matrix" ) )
     if( F==1 ) {
-		x <- c( x, paste0( "  matrix[F,F] not_pos_def_replace_matrix;" ) )
-		x <- c( x, paste0( "  not_pos_def_replace_matrix[1,1] = 1e-3;" ) )
+		x <- c( x, paste0( "  matrix[F,F] Sigmawjp_not_pos_def_replace_matrix;" ) )
+		# x <- c( x, paste0( "  Sigmawjp_not_pos_def_replace_matrix[1,1] = 1e-3;" ) )
+		# MH 2024-07-01 0.0.54, changed to 1
+		x <- c( x, paste0( "  Sigmawjp_not_pos_def_replace_matrix[1,1] = 1;" ) )
+		x <- c( x, paste0( "  matrix[F,F] Qstarjp_not_pos_def_replace_matrix;" ) )
+		x <- c( x, paste0( "  Qstarjp_not_pos_def_replace_matrix[1,1] = 0.5;" ) )	
 	} else {
-		x <- c( x, paste0( "  cov_matrix[F] not_pos_def_replace_matrix = diag_matrix(rep_vector(1e-3, F));" ) )
+		# MH 2024-07-01 0.0.54, changed to 1		
+		# x <- c( x, paste0( "  cov_matrix[F] Sigmawjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(1e-3, F));" ) )
+		x <- c( x, paste0( "  cov_matrix[F] Sigmawjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(1, F));" ) )
+		x <- c( x, paste0( "  cov_matrix[F] Qstarjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(0.5, F));" ) )
 	    x <- c( x, paste0( "  for (i in 1:F) {" ) )
 	    x <- c( x, paste0( "    for (j in 1:F) {" ) )
 	    x <- c( x, paste0( "      if (i != j) {" ) )
-	    x <- c( x, paste0( "        not_pos_def_replace_matrix[i,j] = 1e-6;" ) )
+	    x <- c( x, paste0( "        Sigmawjp_not_pos_def_replace_matrix[i,j] = 1e-6;" ) )
+	    x <- c( x, paste0( "        Qstarjp_not_pos_def_replace_matrix[i,j] = 1e-6;" ) )
 	    x <- c( x, paste0( "      }" ) )
 	    x <- c( x, paste0( "    }" ) )
 	    x <- c( x, paste0( "  }" ) )
@@ -670,7 +679,7 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# Ahash
 	if( !KF ) {
 		for( i in 1:length(uniqueTj) ){
-			x <- c( x, paste0( "  real ",c('AhashjpT'),uniqueTj[i],"[F*F,F*F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // Ahash matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
+			x <- c( x, paste0( "  real ",c('originalAhashjpT','symmetricAhashjpT','AhashjpT'),uniqueTj[i],"[F*F,F*F,NperT",ifelse(Tjn>1,paste0('[',i,']'),''),",",uniqueTj[i],"-1]; // Ahash matrices for ",NperT[i]," persons with ",uniqueTj[i]," time points" ) )
 		}
 	} else if( KF ) {
 		for( i in 1:length(uniqueTj) ){
@@ -693,8 +702,33 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			x <- c( x, paste0( "      // Ahashjp, Eq. 14" ) )
 			x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
 			x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
-			x <- c( x, paste0( "          AhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])))[i,k];" ) )
+			x <- c( x, paste0( "          originalAhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (kronecker_product(to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]),IF) + kronecker_product(IF,to_matrix(AjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p])))[i,k];" ) )
 			x <- c( x, paste0( "        }" ) )
+			x <- c( x, paste0( "      }" ) )
+			x <- c( x, paste0( "      // make symmetric" ) )
+			x <- c( x, paste0( "      symmetricAhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = originalAhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p];" ) )
+			x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
+			x <- c( x, paste0( "        for (k in (i+1):(F*F)){" ) )
+			x <- c( x, paste0( "          symmetricAhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = originalAhashjpT",uniqueTj[i],"[k,i,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p];" ) )
+			x <- c( x, paste0( "        }" ) )
+			x <- c( x, paste0( "      }" ) )			
+			x <- c( x, paste0( "      // replace nan by 0" ) )
+			x <- c( x, paste0( "      for (i in 1:(F*F)){" ) )
+			x <- c( x, paste0( "        for (k in 1:(F*F)){" ) )
+			x <- c( x, paste0( "          if( is_nan( symmetricAhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ) {" ) )
+			x <- c( x, paste0( "            symmetricAhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = 0;" ) )
+			x <- c( x, paste0( "          }" ) )
+			x <- c( x, paste0( "        }" ) )
+			x <- c( x, paste0( "      }" ) )			
+			x <- c( x, paste0( "      if( is_positive_definite( to_matrix( symmetricAhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) ) == 0 ) {" ) )
+			x <- c( x, paste0( "        n_Ahash_not_symmetric = n_Ahash_not_symmetric+1;" ) )			
+			x <- c( x, paste0( "        for (i in 1:(F*F)){" ) )
+			x <- c( x, paste0( "          for (k in 1:(F*F)){" ) )
+			x <- c( x, paste0( "            AhashjpT",uniqueTj[i],"[i,k,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = (to_matrix( symmetricAhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] ) + F2F2add)[i,k];" ) )
+			x <- c( x, paste0( "          }" ) )
+			x <- c( x, paste0( "        }" ) )
+			x <- c( x, paste0( "      } else {" ) )
+			x <- c( x, paste0( "        AhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = symmetricAhashjpT",uniqueTj[i],"[,,j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p];" ) )
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      // Sigmawjp, Eq. 14" ) )
 			# x <- c( x, paste0( "      for (i in 1:F){" ) )
@@ -714,18 +748,18 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			x <- c( x, paste0( "        }" ) )
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      if (has_nan(symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) == 1) {" ) )
-			x <- c( x, paste0( "        symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = not_pos_def_replace_matrix;" ) )
+			x <- c( x, paste0( "        symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = Sigmawjp_not_pos_def_replace_matrix;" ) )
 			x <- c( x, paste0( "        n_has_nan = n_has_nan+1;" ) )
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      if (is_symmetric(symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) == 0) {" ) )
-			x <- c( x, paste0( "        symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = not_pos_def_replace_matrix;" ) )
+			x <- c( x, paste0( "        symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = Sigmawjp_not_pos_def_replace_matrix;" ) )
 			x <- c( x, paste0( "        n_not_symmetric = n_not_symmetric+1;" ) )
 			x <- c( x, paste0( "      }" ) )
 
 
 
 			x <- c( x, paste0( "      if (is_positive_definite(symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) == 0) {" ) )
-  			x <- c( x, paste0( "        SigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = not_pos_def_replace_matrix;" ) )
+  			x <- c( x, paste0( "        SigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = Sigmawjp_not_pos_def_replace_matrix;" ) )
 			x <- c( x, paste0( "        n_not_pos_def = n_not_pos_def+1;" ) )
 			x <- c( x, paste0( "      } else {" ) )
   			x <- c( x, paste0( "        SigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = symmetricSigmawjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p];" ) )
@@ -776,16 +810,16 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			x <- c( x, paste0( "        }" ) )
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      if (has_nan(symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) == 1) {" ) )
-			x <- c( x, paste0( "        symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = not_pos_def_replace_matrix;" ) )
+			x <- c( x, paste0( "        symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = Qstarjp_not_pos_def_replace_matrix;" ) )
 			x <- c( x, paste0( "        n_has_nan = n_has_nan+1;" ) )
 			x <- c( x, paste0( "      }" ) )
 			x <- c( x, paste0( "      if (is_symmetric(symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) == 0) {" ) )
-			x <- c( x, paste0( "        symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = not_pos_def_replace_matrix;" ) )
+			x <- c( x, paste0( "        symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = Qstarjp_not_pos_def_replace_matrix;" ) )
 			x <- c( x, paste0( "        n_not_symmetric = n_not_symmetric+1;" ) )
 			x <- c( x, paste0( "      }" ) )
 
 			x <- c( x, paste0( "      if (is_positive_definite(symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p]) == 0) {" ) )
-  			x <- c( x, paste0( "        QstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = not_pos_def_replace_matrix;" ) )
+  			x <- c( x, paste0( "        QstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = Qstarjp_not_pos_def_replace_matrix;" ) )
 			x <- c( x, paste0( "        n_not_pos_def = n_not_pos_def+1;" ) )  			
 			x <- c( x, paste0( "      } else {" ) )
   			x <- c( x, paste0( "        QstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p] = symmetricQstarjpT",uniqueTj[i],"[j-NperTcum",ifelse(Tjn>1,paste0('[',i,']'),''),",p];" ) )
