@@ -531,14 +531,16 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		x <- c( x, paste0( "  matrix[F,F] Sigmawjp_not_pos_def_replace_matrix;" ) )
 		# x <- c( x, paste0( "  Sigmawjp_not_pos_def_replace_matrix[1,1] = 1e-3;" ) )
 		# MH 2024-07-01 0.0.54, changed to 1
-		x <- c( x, paste0( "  Sigmawjp_not_pos_def_replace_matrix[1,1] = 1;" ) )
+		# x <- c( x, paste0( "  Sigmawjp_not_pos_def_replace_matrix[1,1] = 1;" ) )
+		# MH 2024-07-01 0.0.55, changed to 1e-3
+		x <- c( x, paste0( "  Sigmawjp_not_pos_def_replace_matrix[1,1] = 1e-3;" ) )
 		x <- c( x, paste0( "  matrix[F,F] Qstarjp_not_pos_def_replace_matrix;" ) )
-		x <- c( x, paste0( "  Qstarjp_not_pos_def_replace_matrix[1,1] = 0.5;" ) )	
+		x <- c( x, paste0( "  Qstarjp_not_pos_def_replace_matrix[1,1] = 1e-3;" ) )	
 	} else {
 		# MH 2024-07-01 0.0.54, changed to 1		
 		# x <- c( x, paste0( "  cov_matrix[F] Sigmawjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(1e-3, F));" ) )
-		x <- c( x, paste0( "  cov_matrix[F] Sigmawjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(1, F));" ) )
-		x <- c( x, paste0( "  cov_matrix[F] Qstarjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(0.5, F));" ) )
+		x <- c( x, paste0( "  cov_matrix[F] Sigmawjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(1e-3, F));" ) )
+		x <- c( x, paste0( "  cov_matrix[F] Qstarjp_not_pos_def_replace_matrix = diag_matrix(rep_vector(1e-3, F));" ) )
 	    x <- c( x, paste0( "  for (i in 1:F) {" ) )
 	    x <- c( x, paste0( "    for (j in 1:F) {" ) )
 	    x <- c( x, paste0( "      if (i != j) {" ) )
