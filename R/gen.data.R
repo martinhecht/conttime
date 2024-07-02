@@ -15,7 +15,7 @@
 #' @return An environment is returned containing design characteristics, generated time points, and generated data. Use \code{ls(envir=<returned environment>)} to view its contents.
 
 ## Function definition
-gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, tries.max=10000, fac=1.5, verbose=TRUE ){
+gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, tries.max=100000, fac=1.5, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
@@ -372,24 +372,25 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 					} else {
 
 						# generate new design for this person
-						deltas.arg <- sort( unique( as.vector( deltajp ) ) )
-						first.time.points.arg <- sort( unique( tunique[ ptuniquejp[,1] ] ) )
+						# deltas.arg <- sort( unique( as.vector( deltajp ) ) )
+						# first.time.points.arg <- sort( unique( tunique[ ptuniquejp[,1] ] ) )
 						# try generate until all time points are existant in the all-person time points vector
-						keep.trying2 <- TRUE
-						tries.max2 <- 1000
-						try2 <- 1
-						while( keep.trying2 && try2 <= tries.max2 ){
+						# keep.trying2 <- TRUE
+						# tries.max2 <- tries.max
+						# try2 <- 1
+						# while( keep.trying2 && try2 <= tries.max2 ){
 							Tj.j <- Tj[j]
-							env.j <- gen.design( F=F, N=1, T=Tj.j, Tdiv=0, deltas=deltas.arg, first.time.points=first.time.points.arg, verbose=verbose )
-							ptuniquejp.j <- get( "ptuniquejp", envir=env.j )
-							tunique.j <- get( "tunique", envir=env.j )
+							# env.j <- gen.design( F=F, N=1, T=Tj.j, Tdiv=0, deltas=deltas.arg, first.time.points=first.time.points.arg, verbose=verbose )
+							# ptuniquejp.j <- get( "ptuniquejp", envir=env.j )
+							# tunique.j <- get( "tunique", envir=env.j )
 							
-							if( all( tunique.j %in% tunique ) ){
-								keep.trying2 <- FALSE
-							}
-							try2 <- try2 + 1
-						}
-						if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
+							# if( all( tunique.j %in% tunique ) ){
+								# keep.trying2 <- FALSE
+							# }
+							# try2 <- try2 + 1
+						# }
+						# if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
+						tunique.j <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
 						
 						# merge new design into all-person design
 						ptuniquejp[j,] <- NA # NA probably important if Tj differs
