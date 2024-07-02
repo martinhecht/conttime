@@ -13,6 +13,8 @@
   seed = "random",
   par.env = NULL,
   return.init.only = TRUE,
+  tries.max = 10000,
+  fac = 3,
   verbose = TRUE
 )
 }
@@ -32,6 +34,10 @@
 \item{par.env}{an environment containing declarations of model parameters in the matrices A0, Achange, and Q0. This is used to determine and align whether a parameter is freely estimated (requiring a start value) or fixed (no start value needed). This is optional, as Stan will ignore start values for fixed parameters.}
 
 \item{return.init.only}{a logical value that determines whether only the \code{init} object for function \code{stan} should be returned, or if additional information (such as the seed and starting values in the form of a data frame) should also be included}
+
+\item{tries.max}{an integer value that specifies the number of attempts to find suitable jittered starting values}
+
+\item{fac}{a factor used to determine extreme values of matrix properties, where a value is considered extreme if the property exceeds fac times the standard deviation (SD) over persons and time points}
 
 \item{verbose}{a logical value indicating whether to print detailed messages and progress updates during the execution of the function}
 }

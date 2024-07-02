@@ -9,6 +9,8 @@ gen.data(
   seed = "random",
   value.env = NULL,
   gen.data = TRUE,
+  tries.max = 10000,
+  fac = 1.5,
   verbose = TRUE
 )
 }
@@ -20,6 +22,10 @@ gen.data(
 \item{value.env}{an environment containing the true values of the matrices A0, Achange, and Q0 for data generation; if \code{NULL}, default values are used}
 
 \item{gen.data}{a logical value indicating whether to generate data}
+
+\item{tries.max}{an integer value that specifies the number of attempts to replace persons (via design) with poorly behaved DT matrices}
+
+\item{fac}{a factor used to determine extreme values of matrix properties, where a value is considered extreme if the property exceeds fac times the standard deviation (SD) over time points}
 
 \item{verbose}{a logical value indicating whether to print detailed messages and progress updates during the execution of the function}
 }

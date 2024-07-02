@@ -1,4 +1,5 @@
 ## Changelog:
+# MH 2024-07-02 0.0.57, added tries.max and fac as arguments
 # MH 0.0.53 2024-06-28, now also full A0 and full Achange (i.e., with fixed values)
 # MH 2024-05-19: set up
 
@@ -13,11 +14,13 @@
 #' @param seed a number used as the seed for \code{set.seed(seed)} or the value "random" for the random generation of a seed
 #' @param par.env an environment containing declarations of model parameters in the matrices A0, Achange, and Q0. This is used to determine and align whether a parameter is freely estimated (requiring a start value) or fixed (no start value needed). This is optional, as Stan will ignore start values for fixed parameters.
 #' @param return.init.only a logical value that determines whether only the \code{init} object for function \code{stan} should be returned, or if additional information (such as the seed and starting values in the form of a data frame) should also be included
+#' @param tries.max an integer value that specifies the number of attempts to find suitable jittered starting values
+#' @param fac a factor used to determine extreme values of matrix properties, where a value is considered extreme if the property exceeds fac times the standard deviation (SD) over persons and time points
 #' @param verbose a logical value indicating whether to print detailed messages and progress updates during the execution of the function
 #' @return Either the \code{init} object for the \code{stan} function when \code{return.init.only=TRUE}, or a list containing \code{init}, \code{seed.jitter.sv}, and \code{sv} when \code{return.init.only=FALSE}.
 
 ## Function definition
-start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, verbose=TRUE ){
+start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, tries.max=10000, fac=3, verbose=TRUE ){
 
 	F <- get("F", envir=data.env )
 
@@ -237,8 +240,6 @@ start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE
 		if( verbose ) cat( paste0( "trying to generate jittered start values\n" ) )
 		for( i in 1:chains ){
 			keep.trying <- TRUE
-			tries.max <- 10000
-			fac <- 3
 			try <- 1
 			while( keep.trying && try <= tries.max ){
 				if( verbose ) {

@@ -1,4 +1,5 @@
 ## Changelog:
+# MH 2024-07-02 0.0.57, now checking individual for good matrix properties, if not good, a new design is drawn; added tries.max and fac as arguments
 # MH 2024-04-04: set up
 
 ## Documentation
@@ -8,18 +9,20 @@
 #' @param seed a number used as the seed for \code{set.seed(seed)} or the value "random" for the random generation of a seed
 #' @param value.env an environment containing the true values of the matrices A0, Achange, and Q0 for data generation; if \code{NULL}, default values are used
 #' @param gen.data a logical value indicating whether to generate data
+#' @param tries.max an integer value that specifies the number of attempts to replace persons (via design) with poorly behaved DT matrices
+#' @param fac a factor used to determine extreme values of matrix properties, where a value is considered extreme if the property exceeds fac times the standard deviation (SD) over time points
 #' @param verbose a logical value indicating whether to print detailed messages and progress updates during the execution of the function
 #' @return An environment is returned containing design characteristics, generated time points, and generated data. Use \code{ls(envir=<returned environment>)} to view its contents.
 
 ## Function definition
-gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, verbose=TRUE ){
+gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, tries.max=10000, fac=1.5, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
 		# between.mu <- TRUE
 
 		# matrix properties data frame
-		mp <- data.frame( "matrix"=NA, "symmetric"=NA, "posdef"=NA, "posdef2"=NA, "possemidef"=NA, "kappa"=NA, "minSVD"=NA, "maxSVD"=NA, "eigenvaluespread"=NA, "rank"=NA, "fullrank"=NA )
+		mp <- data.frame( "j"=NA, "p"=NA, "matrix"=NA, "symmetric"=NA, "posdef"=NA, "posdef2"=NA, "possemidef"=NA, "kappa"=NA, "minSVD"=NA, "maxSVD"=NA, "eigenvaluespread"=NA, "rank"=NA, "fullrank"=NA )
 		mp <- mp[-1,,drop=FALSE]
 
 		### based on tvct_v1.pdf (2024-04-04)
@@ -221,104 +224,190 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 		diag( F2F2add ) <- 0
 		
 		# individualization
+		if( verbose ) cat( paste0( "trying to generate person-specific DT matrices\n" ) )
 		for( j in 1:N ){
-			# muj, Eq. 8
-			if( between.mu ){ muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu ) } 
-			for( p in 1:Tj[j] ){
-				# Eq. 11
-				Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]
-				Qjp[,,j,p] <- Qt[,,ptuniquejp[j,p]]
-				# 0.0.29 2024-05-06, no mean
-				# if( between.mu ){
-					# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
-				# } else {
-					# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]]
-				# }
-				# Ahash, Eq. 14
-				Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
-				
-				# if not positive definite add F2F2add
-				if( !is_positive_definite2( Ahashjp[,,j,p] ) ){
-					Ahashjp[,,j,p] <- Ahashjp[,,j,p] + F2F2add
+			
+			# MH 2024-07-02 0.0.57, eleminate "bad" persons in data generation
+			keep.trying <- TRUE
+			try <- 1
+			while( keep.trying && try <= tries.max ){
+				if( verbose ) {
+					if( try==1 ) cat( paste0( "person ", j, " ." ) ) else cat( "." )
+					flush.console()
 				}
+			
+				# muj, Eq. 8
+				if( between.mu ){ muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu ) } 
 				
-				# Sigmaw, Eq. 14
-				Sigmawjp[,,j,p] <- irow( -solve( Ahashjp[,,j,p] ) %*% row(Qjp[,,j,p]) )
+				for( p in 1:Tj[j] ){
+					# Eq. 11
+					Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]
+					Qjp[,,j,p] <- Qt[,,ptuniquejp[j,p]]
+					# 0.0.29 2024-05-06, no mean
+					# if( between.mu ){
+						# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]] + as.matrix( muj[,1,j,drop=FALSE] )
+					# } else {
+						# mujp[,1,j,p] <- mut[,1,ptuniquejp[j,p]]
+					# }
+					# Ahash, Eq. 14
+					Ahashjp[,,j,p] <- Ajp[,,j,p] %x% IF + IF %x% Ajp[,,j,p]
+					
+					# if not positive definite add F2F2add
+					if( !is_positive_definite2( Ahashjp[,,j,p] ) ){
+						Ahashjp[,,j,p] <- Ahashjp[,,j,p] + F2F2add
+					}
+					
+					# Sigmaw, Eq. 14
+					Sigmawjp[,,j,p] <- irow( -solve( Ahashjp[,,j,p] ) %*% row(Qjp[,,j,p]) )
+	
+					### check matrix properties of Sigmawjp[,,j,p]
+					ind <- nrow( mp ) + 1
+					mp[ind,"j"] <- j
+					mp[ind,"p"] <- p
+					mp[ind,"matrix"] <- paste0( "Sigmawjp[,,",j,",",p,"]" )
+					# symmetric
+					mp[ind,"symmetric"] <- isSymmetric( Sigmawjp[,,j,p] )
+					# positive definiteness
+					mp[ind,"posdef"] <- is_positive_definite( Sigmawjp[,,j,p] )
+					mp[ind,"posdef2"] <- is_positive_definite2( Sigmawjp[,,j,p] )
+					# positive semi-definiteness
+					mp[ind,"possemidef"] <- is_positive_semi_definite( Sigmawjp[,,j,p] )
+					# condition number
+					mp[ind,"kappa"] <- kappa( Sigmawjp[,,j,p] )
+					# minimal/maximal Singular Value Decomposition (SVD)
+					mp[ind,"minSVD"] <- min( svd( Sigmawjp[,,j,p] )$d )
+					mp[ind,"maxSVD"] <- max( svd( Sigmawjp[,,j,p] )$d )
+					# eigenvalues spread
+					eigenvalues <- eigen( Sigmawjp[,,j,p] )$values
+					if (any(Im(eigenvalues) != 0)) {
+						mp[ind,"eigenvaluespread"] <- NA
+					} else {
+						mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+					}
+					# rank
+					mp[ind,"rank"] <- qr( Sigmawjp[,,j,p] )$rank
+					# full rank
+					mp[ind,"fullrank"] <- qr( Sigmawjp[,,j,p] )$rank == F
+					
+				}
+	
+				for( p in 1:(Tj[j]-1) ){
+					# Astarjp, Eq. 12
+					# MH 0.0.44 2024-05-31, as.matrix needed for F=1
+					Astarjp[,,j,p] <- expm( as.matrix( Ajp[,,j,p] * deltajp[j,p] ) )
+					# Qstarjp, Eq. 13
+					Qstarjp[,,j,p] <- irow( -( expm( as.matrix( Ahashjp[,,j,p] * deltajp[j,p] ) ) - IF2 ) %*% row( Sigmawjp[,,j,p] ) )			
+	
+					### check matrix properties of Qstarjp[,,j,p]
+					ind <- nrow( mp ) + 1
+					mp[ind,"j"] <- j
+					mp[ind,"p"] <- p
+					mp[ind,"matrix"] <- paste0( "Qstarjp[,,",j,",",p,"]" )
+					# symmetric
+					mp[ind,"symmetric"] <- isSymmetric( Qstarjp[,,j,p] )
+					# positive definiteness
+					mp[ind,"posdef"] <- is_positive_definite( Qstarjp[,,j,p] )
+					mp[ind,"posdef2"] <- is_positive_definite2( Qstarjp[,,j,p] )
+					# positive semi-definiteness
+					mp[ind,"possemidef"] <- is_positive_semi_definite( Qstarjp[,,j,p] )
+					# condition number
+					mp[ind,"kappa"] <- kappa( Qstarjp[,,j,p] )
+					# minimal/maximal Singular Value Decomposition (SVD)
+					mp[ind,"minSVD"] <- min( svd( Qstarjp[,,j,p] )$d )
+					mp[ind,"maxSVD"] <- max( svd( Qstarjp[,,j,p] )$d )
+					# eigenvalues spread
+					eigenvalues <- eigen( Qstarjp[,,j,p] )$values
+					if (any(Im(eigenvalues) != 0)) {
+						mp[ind,"eigenvaluespread"] <- NA
+					} else {
+						mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+					}
+					# rank
+					mp[ind,"rank"] <- qr( Qstarjp[,,j,p] )$rank
+					# full rank
+					mp[ind,"fullrank"] <- qr( Qstarjp[,,j,p] )$rank == F				
+					
+					make_symmetric <- function(mat) {
+						return((mat + t(mat)) / 2)
+					}
+					if( !isSymmetric( Qstarjp[,,j,p] ) ) {
+						# Qstarjp[,,j,p] <- round( Qstarjp[,,j,p], 5 )
+						Qstarjp[,,j,p] <- make_symmetric( Qstarjp[,,j,p] )
+					}
+				}
+			
+				# check whether matrices are ok or person needs to be replaced
+				if( gen.data ){
+				    mp.j <- mp[mp$j %in% j,]
+					
+					# all matrices must be symmetric, pos def, pos semi def anf with full rank
+					check5 <- all( all( mp.j$symmetric ), all( mp.j$posdef ), all( mp.j$posdef2 ), all( mp.j$possemidef ), all( mp.j$fullrank ) )
+	
+					# relative criteria
+					mp.j1 <- mp.j[ grepl("Sigmawjp",mp.j$matrix),]
+					check6 <- all( mp.j1$kappa <= mean(mp.j1$kappa) + fac*sd(mp.j1$kappa) )
+					check7 <- all( mp.j1$minSVD >= mean(mp.j1$minSVD) - fac*sd(mp.j1$minSVD) )
+					check8 <- all( mp.j1$maxSVD >= mean(mp.j1$maxSVD) - fac*sd(mp.j1$maxSVD) )
+					if( any( is.na( mp.j1$eigenvaluespread ) ) ){
+						check9 <- FALSE
+					} else {
+						check9 <- all( mp.j1$eigenvaluespread <= mean(mp.j1$eigenvaluespread) + fac*sd(mp.j1$eigenvaluespread) )
+					}
+					mp.j2 <- mp.j[ grepl("Qstarjp",mp.j$matrix),]
+					check10 <- all( mp.j2$kappa <= mean(mp.j2$kappa) + fac*sd(mp.j2$kappa) )
+					check11 <- all( mp.j2$minSVD >= mean(mp.j2$minSVD) - fac*sd(mp.j2$minSVD) )
+					check12 <- all( mp.j2$maxSVD >= mean(mp.j2$maxSVD) - fac*sd(mp.j2$maxSVD) )
+					if( any( is.na( mp.j2$eigenvaluespread ) ) ){
+						check13 <- FALSE
+					} else {				
+						check13 <- all( mp.j2$eigenvaluespread <= mean(mp.j2$eigenvaluespread) + fac*sd(mp.j2$eigenvaluespread) )
+					}					
+					
+					if( all( c(check5,check6,check7,check8,check9,check10,check11,check12,check13) ) ) {
+						keep.trying <- FALSE
+						if( verbose ){
+							cat( paste0( "\nsuccess (after ",try," iterations)","\n" ) )
+							flush.console()
+						}
+					} else {
 
-				### check matrix properties of Sigmawjp[,,j,p]
-				ind <- nrow( mp ) + 1
-				mp[ind,"matrix"] <- paste0( "Sigmawjp[,,",j,",",p,"]" )
-				# symmetric
-				mp[ind,"symmetric"] <- isSymmetric( Sigmawjp[,,j,p] )
-				# positive definiteness
-				mp[ind,"posdef"] <- is_positive_definite( Sigmawjp[,,j,p] )
-				mp[ind,"posdef2"] <- is_positive_definite2( Sigmawjp[,,j,p] )
-				# positive semi-definiteness
-				mp[ind,"possemidef"] <- is_positive_semi_definite( Sigmawjp[,,j,p] )
-				# condition number
-				mp[ind,"kappa"] <- kappa( Sigmawjp[,,j,p] )
-				# minimal/maximal Singular Value Decomposition (SVD)
-				mp[ind,"minSVD"] <- min( svd( Sigmawjp[,,j,p] )$d )
-				mp[ind,"maxSVD"] <- max( svd( Sigmawjp[,,j,p] )$d )
-				# eigenvalues spread
-				eigenvalues <- eigen( Sigmawjp[,,j,p] )$values
-				if (any(Im(eigenvalues) != 0)) {
-					mp[ind,"eigenvaluespread"] <- NA
+						# generate new design for this person
+						deltas.arg <- sort( unique( as.vector( deltajp ) ) )
+						first.time.points.arg <- sort( unique( tunique[ ptuniquejp[,1] ] ) )
+						# try generate until all time points are existant in the all-person time points vector
+						keep.trying2 <- TRUE
+						tries.max2 <- 1000
+						try2 <- 1
+						while( keep.trying2 && try2 <= tries.max2 ){
+							Tj.j <- Tj[j]
+							env.j <- gen.design( F=F, N=1, T=Tj.j, Tdiv=0, deltas=deltas.arg, first.time.points=first.time.points.arg, verbose=verbose )
+							ptuniquejp.j <- get( "ptuniquejp", envir=env.j )
+							tunique.j <- get( "tunique", envir=env.j )
+							
+							if( all( tunique.j %in% tunique ) ){
+								keep.trying2 <- FALSE
+							}
+							try2 <- try2 + 1
+						}
+						if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
+						
+						# merge new design into all-person design
+						ptuniquejp[j,] <- NA # NA probably important if Tj differs
+						ptuniquejp[j,1:Tj.j] <- which( tunique %in% tunique.j )
+						deltajp[j,] <- NA # NA probably important if Tj differs
+						deltajp[j,1:(Tj.j-1)] <- diff( tunique.j )
+						
+					}
+					try <- try+1
 				} else {
-					mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
+					# if not gen data, then continue in any case
+					keep.trying <- FALSE
 				}
-				# rank
-				mp[ind,"rank"] <- qr( Sigmawjp[,,j,p] )$rank
-				# full rank
-				mp[ind,"fullrank"] <- qr( Sigmawjp[,,j,p] )$rank == F
-				
-			}
-		}
+			
+			} # end of while loop
+			if( keep.trying & gen.data ) stop( paste0( "did not find person-specific DT matrices for person ", j, " after ", tries.max, " tries." ) )
 
-		for( j in 1:N ){
-			for( p in 1:(Tj[j]-1) ){
-				# Astarjp, Eq. 12
-				# MH 0.0.44 2024-05-31, as.matrix needed for F=1
-				Astarjp[,,j,p] <- expm( as.matrix( Ajp[,,j,p] * deltajp[j,p] ) )
-				# Qstarjp, Eq. 13
-				Qstarjp[,,j,p] <- irow( -( expm( as.matrix( Ahashjp[,,j,p] * deltajp[j,p] ) ) - IF2 ) %*% row( Sigmawjp[,,j,p] ) )			
-
-				### check matrix properties of Qstarjp[,,j,p]
-				ind <- nrow( mp ) + 1
-				mp[ind,"matrix"] <- paste0( "Qstarjp[,,",j,",",p,"]" )
-				# symmetric
-				mp[ind,"symmetric"] <- isSymmetric( Qstarjp[,,j,p] )
-				# positive definiteness
-				mp[ind,"posdef"] <- is_positive_definite( Qstarjp[,,j,p] )
-				mp[ind,"posdef2"] <- is_positive_definite2( Qstarjp[,,j,p] )
-				# positive semi-definiteness
-				mp[ind,"possemidef"] <- is_positive_semi_definite( Qstarjp[,,j,p] )
-				# condition number
-				mp[ind,"kappa"] <- kappa( Qstarjp[,,j,p] )
-				# minimal/maximal Singular Value Decomposition (SVD)
-				mp[ind,"minSVD"] <- min( svd( Qstarjp[,,j,p] )$d )
-				mp[ind,"maxSVD"] <- max( svd( Qstarjp[,,j,p] )$d )
-				# eigenvalues spread
-				eigenvalues <- eigen( Qstarjp[,,j,p] )$values
-				if (any(Im(eigenvalues) != 0)) {
-					mp[ind,"eigenvaluespread"] <- NA
-				} else {
-					mp[ind,"eigenvaluespread"] <- max(eigenvalues) - min(eigenvalues)
-				}
-				# rank
-				mp[ind,"rank"] <- qr( Qstarjp[,,j,p] )$rank
-				# full rank
-				mp[ind,"fullrank"] <- qr( Qstarjp[,,j,p] )$rank == F				
-				
-				make_symmetric <- function(mat) {
-					return((mat + t(mat)) / 2)
-				}
-				if( !isSymmetric( Qstarjp[,,j,p] ) ) {
-					# Qstarjp[,,j,p] <- round( Qstarjp[,,j,p], 5 )
-					Qstarjp[,,j,p] <- make_symmetric( Qstarjp[,,j,p] )
-				}
-			}
-		}
+		} # end of loop over persons
 
 		if( gen.data ){
 			for( j in 1:N ){
