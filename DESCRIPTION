@@ -7,8 +7,10 @@ Author: Martin Hecht
 Maintainer: Martin Hecht <martin.hecht@hsu-hh.de>
 Description: This package allows for the estimation of time-varying continuous-time models using the Stan framework.
 License: GPL (>= 2)
-Depends: 
-Suggests: 
+Depends:
+Suggests:
 Imports: mvtnorm, expm, rstan
-LinkingTo: 
+LinkingTo:
 RoxygenNote: 7.3.1
+NeedsCompilation: no
+Packaged: 2024-06-27 23:25:24 UTC; martin
