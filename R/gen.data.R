@@ -399,9 +399,9 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 						# }
 						# if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
 						tunique.j <- rep(NA,T)
-						if( try < tries.max ){
+						if( try < (tries.max-1) ){ # bis vorvorletztes
 							tunique.j[1:Tj.j] <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
-						} else {
+						} else if( try < tries.max ) { # vorletztes
 							
 							# determine whether already one person with same Tj exists
 							sameTjs <- which( Tj %in% Tj.j )
@@ -415,17 +415,19 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 							}
 						}
 						
-						# merge new design into all-person design
-						ptuniquejp[j,] <- NA # NA probably important if Tj differs
-						ptuniquejp[j,1:Tj.j] <- which( tunique %in% tunique.j )
-						deltajp[j,] <- NA # NA probably important if Tj differs
-						deltajp[j,1:(T-1)] <- diff( tunique.j )
+						if( try < tries.max ){ # bis vorletztes updaten, damit letztes nicht noch mal neu, damit Daten/Design/Properties stimmen
+							# merge new design into all-person design
+							ptuniquejp[j,] <- NA # NA probably important if Tj differs
+							ptuniquejp[j,1:Tj.j] <- which( tunique %in% tunique.j )
+							deltajp[j,] <- NA # NA probably important if Tj differs
+							deltajp[j,1:(T-1)] <- diff( tunique.j )
 
-						# matrix properties data frame can get very big (and everything very slow), delete current try
-						if( length( w <- which( mp$j %in% j & mp$try %in% try ) ) > 0 ){
-							mp <- mp[-w,]
+							# matrix properties data frame can get very big (and everything very slow), delete current try
+							if( length( w <- which( mp$j %in% j & mp$try %in% try ) ) > 0 ){
+								mp <- mp[-w,]
+							}
 						}
-						
+
 					}
 					try <- try+1
 					
