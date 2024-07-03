@@ -15,7 +15,7 @@
 #' @return An environment is returned containing design characteristics, generated time points, and generated data. Use \code{ls(envir=<returned environment>)} to view its contents.
 
 ## Function definition
-gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, tries.max=100000, fac=1.5, verbose=TRUE ){
+gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, tries.max=1000, fac=2, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
@@ -390,7 +390,11 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 							# try2 <- try2 + 1
 						# }
 						# if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
-						tunique.j <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
+						if( try < tries.max ){
+							tunique.j <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
+						} else {
+							tunique.j <- rep( 1, Tj.j )
+						}
 						
 						# merge new design into all-person design
 						ptuniquejp[j,] <- NA # NA probably important if Tj differs
@@ -406,7 +410,8 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 				}
 			
 			} # end of while loop
-			if( keep.trying & gen.data ) stop( paste0( "did not find person-specific DT matrices for person ", j, " after ", tries.max, " tries." ) )
+			# if( keep.trying & gen.data ) stop( paste0( "did not find person-specific DT matrices for person ", j, " after ", tries.max, " tries." ) )
+			if( verbose & keep.trying & gen.data ) cat( paste0( "did not find person-specific DT matrices for person ", j, " after ", tries.max, " tries.\n" ) )
 
 		} # end of loop over persons
 
