@@ -15,7 +15,7 @@
 #' @return An environment is returned containing design characteristics, generated time points, and generated data. Use \code{ls(envir=<returned environment>)} to view its contents.
 
 ## Function definition
-gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, tries.max=1000, fac=2, verbose=TRUE ){
+gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, tries.max=100, fac=1.75, verbose=TRUE ){
 
 		# trigger for no between-(co)variances in mu
 		between.mu <- FALSE
@@ -230,9 +230,15 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 			# MH 2024-07-02 0.0.57, eleminate "bad" persons in data generation
 			keep.trying <- TRUE
 			try <- 1
+			replaced.by <- NULL
 			while( keep.trying && try <= tries.max ){
 				if( verbose ) {
-					if( try==1 ) cat( paste0( "person ", j, " ." ) ) else cat( "." )
+					if( try %% 10 == 0 ){
+						prog.symbol <- paste0( "(",try,"/",tries.max,")" )
+					} else {
+						prog.symbol <- "."
+					}					
+					if( try==1 ) cat( paste0( "person ", j, " ", prog.symbol ) ) else cat( prog.symbol )
 					flush.console()
 				}
 			
@@ -264,6 +270,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 					ind <- nrow( mp ) + 1
 					mp[ind,"j"] <- j
 					mp[ind,"p"] <- p
+					mp[ind,"try"] <- try
 					mp[ind,"matrix"] <- paste0( "Sigmawjp[,,",j,",",p,"]" )
 					# symmetric
 					mp[ind,"symmetric"] <- isSymmetric( Sigmawjp[,,j,p] )
@@ -302,6 +309,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 					ind <- nrow( mp ) + 1
 					mp[ind,"j"] <- j
 					mp[ind,"p"] <- p
+					mp[ind,"try"] <- try
 					mp[ind,"matrix"] <- paste0( "Qstarjp[,,",j,",",p,"]" )
 					# symmetric
 					mp[ind,"symmetric"] <- isSymmetric( Qstarjp[,,j,p] )
@@ -338,7 +346,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 			
 				# check whether matrices are ok or person needs to be replaced
 				if( gen.data ){
-				    mp.j <- mp[mp$j %in% j,]
+				    mp.j <- mp[mp$j %in% j & mp$try %in% try,]
 					
 					# all matrices must be symmetric, pos def, pos semi def anf with full rank
 					check5 <- all( all( mp.j$symmetric ), all( mp.j$posdef ), all( mp.j$posdef2 ), all( mp.j$possemidef ), all( mp.j$fullrank ) )
@@ -390,20 +398,37 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 							# try2 <- try2 + 1
 						# }
 						# if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
+						tunique.j <- rep(NA,T)
 						if( try < tries.max ){
-							tunique.j <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
+							tunique.j[1:Tj.j] <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
 						} else {
-							tunique.j <- rep( 1, Tj.j )
+							
+							# determine whether already one person with same Tj exists
+							sameTjs <- which( Tj %in% Tj.j )
+							sameTjs.before <- sameTjs[ sameTjs < j ]
+							if( length( sameTjs.before ) > 0 ){
+								tunique.j <- tunique[ ptuniquejp[ sameTjs.before[length(sameTjs.before)], ] ]
+								replaced.by <- "person duplicated from valid person before"
+							} else {
+								tunique.j[1:Tj.j] <- 0:(Tj.j-1) ### ggf. noch mit first.time.points.arg/deltas.arg
+								replaced.by <- paste0( "set to time = ", tunique.j[1], " ... ", tunique.j[Tj.j] )
+							}
 						}
 						
 						# merge new design into all-person design
 						ptuniquejp[j,] <- NA # NA probably important if Tj differs
 						ptuniquejp[j,1:Tj.j] <- which( tunique %in% tunique.j )
 						deltajp[j,] <- NA # NA probably important if Tj differs
-						deltajp[j,1:(Tj.j-1)] <- diff( tunique.j )
+						deltajp[j,1:(T-1)] <- diff( tunique.j )
+
+						# matrix properties data frame can get very big (and everything very slow), delete current try
+						if( length( w <- which( mp$j %in% j & mp$try %in% try ) ) > 0 ){
+							mp <- mp[-w,]
+						}
 						
 					}
 					try <- try+1
+					
 				} else {
 					# if not gen data, then continue in any case
 					keep.trying <- FALSE
@@ -411,7 +436,10 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 			
 			} # end of while loop
 			# if( keep.trying & gen.data ) stop( paste0( "did not find person-specific DT matrices for person ", j, " after ", tries.max, " tries." ) )
-			if( verbose & keep.trying & gen.data ) cat( paste0( "did not find person-specific DT matrices for person ", j, " after ", tries.max, " tries.\n" ) )
+			if( verbose & keep.trying & gen.data ) {
+				cat( paste0( "\ndid not find person-specific DT matrices for person ", j, " after ", tries.max, " tries\n" ) )
+				if( !is.null( replaced.by ) ) cat( paste0( "  (", replaced.by , ")\n" ) )
+			}
 
 		} # end of loop over persons
 

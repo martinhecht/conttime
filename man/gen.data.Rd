@@ -9,8 +9,8 @@ gen.data(
   seed = "random",
   value.env = NULL,
   gen.data = TRUE,
-  tries.max = 1000,
-  fac = 2,
+  tries.max = 100,
+  fac = 1.75,
   verbose = TRUE
 )
 }

@@ -20,7 +20,7 @@
 #' @return Either the \code{init} object for the \code{stan} function when \code{return.init.only=TRUE}, or a list containing \code{init}, \code{seed.jitter.sv}, and \code{sv} when \code{return.init.only=FALSE}.
 
 ## Function definition
-start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, tries.max=10000, fac=3, verbose=TRUE ){
+start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE, jitter.env=NULL, seed="random", par.env=NULL, return.init.only=TRUE, tries.max=100, fac=2, verbose=TRUE ){
 
 	F <- get("F", envir=data.env )
 
@@ -243,7 +243,12 @@ start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE
 			try <- 1
 			while( keep.trying && try <= tries.max ){
 				if( verbose ) {
-					if( try==1 ) cat( paste0( "chain ", i, " ." ) ) else cat( "." )
+					if( try %% 10 == 0 ){
+						prog.symbol <- paste0( "(",try,"/",tries.max,")" )
+					} else {
+						prog.symbol <- "."
+					}
+					if( try==1 ) cat( paste0( "chain ", i, " ", prog.symbol ) ) else cat( prog.symbol )
 					flush.console()
 				}
 				
@@ -332,27 +337,34 @@ start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE
 				# all matrices must be symmetric, pos def, pos semi def anf with full rank
 				check5 <- all( all( mp$symmetric ), all( mp$posdef ), all( mp$posdef2 ), all( mp$possemidef ), all( mp$fullrank ) )
 
+				check.vec <- c(check1,check2,check3,check4,check5)
+				
 				# relative criteria
-				mp1 <- mp[ grepl("Sigmawjp",mp$matrix),]
-				check6 <- all( mp1$kappa <= mean(mp1$kappa) + fac*sd(mp1$kappa) )
-				check7 <- all( mp1$minSVD >= mean(mp1$minSVD) - fac*sd(mp1$minSVD) )
-				check8 <- all( mp1$maxSVD >= mean(mp1$maxSVD) - fac*sd(mp1$maxSVD) )
-				if( any( is.na( mp1$eigenvaluespread ) ) ){
-					check9 <- FALSE
-				} else {
-					check9 <- all( mp1$eigenvaluespread <= mean(mp1$eigenvaluespread) + fac*sd(mp1$eigenvaluespread) )
-				}
-				mp2 <- mp[ grepl("Qstarjp",mp$matrix),]
-				check10 <- all( mp2$kappa <= mean(mp2$kappa) + fac*sd(mp2$kappa) )
-				check11 <- all( mp2$minSVD >= mean(mp2$minSVD) - fac*sd(mp2$minSVD) )
-				check12 <- all( mp2$maxSVD >= mean(mp2$maxSVD) - fac*sd(mp2$maxSVD) )
-				if( any( is.na( mp2$eigenvaluespread ) ) ){
-					check13 <- FALSE
-				} else {				
-					check13 <- all( mp2$eigenvaluespread <= mean(mp2$eigenvaluespread) + fac*sd(mp2$eigenvaluespread) )
-				}
+				if( !is.na( fac ) ){
+					mp1 <- mp[ grepl("Sigmawjp",mp$matrix),]
+					check6 <- all( mp1$kappa <= mean(mp1$kappa) + fac*sd(mp1$kappa) )
+					check7 <- all( mp1$minSVD >= mean(mp1$minSVD) - fac*sd(mp1$minSVD) )
+					check8 <- all( mp1$maxSVD >= mean(mp1$maxSVD) - fac*sd(mp1$maxSVD) )
+					if( any( is.na( mp1$eigenvaluespread ) ) ){
+						check9 <- FALSE
+					} else {
+						check9 <- all( mp1$eigenvaluespread <= mean(mp1$eigenvaluespread) + fac*sd(mp1$eigenvaluespread) )
+					}
+					mp2 <- mp[ grepl("Qstarjp",mp$matrix),]
+					check10 <- all( mp2$kappa <= mean(mp2$kappa) + fac*sd(mp2$kappa) )
+					check11 <- all( mp2$minSVD >= mean(mp2$minSVD) - fac*sd(mp2$minSVD) )
+					check12 <- all( mp2$maxSVD >= mean(mp2$maxSVD) - fac*sd(mp2$maxSVD) )
+					if( any( is.na( mp2$eigenvaluespread ) ) ){
+						check13 <- FALSE
+					} else {				
+						check13 <- all( mp2$eigenvaluespread <= mean(mp2$eigenvaluespread) + fac*sd(mp2$eigenvaluespread) )
+					}
 		
-				if( all( c(check1,check2,check3,check4,check5,check6,check7,check8,check9,check10,check11,check12,check13) ) ) {
+					check.vec <- c( check.vec, check6,check7,check8,check9,check10,check11,check12,check13 )
+				}
+				
+				# check
+				if( all( check.vec ) ) {
 					keep.trying <- FALSE
 					if( verbose ) {
 						cat( paste0( "\nsuccess (after ",try," iterations)","\n" ) )

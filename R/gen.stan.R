@@ -12,11 +12,15 @@
 #' @param prior.env an environment containing priors for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default priors are used
 #' @param chains Argument chains is used only for start value creation. Use \code{start.values()} for optional manual start value creation or to change defaults. If \code{NULL}, default start values are used. If a numeric value >= 1 is provided, jittered default start values are used.
 #' @param KF use Kalman Filter estimation
+#' @param fac used for creating start values; passed as an argument to the function  \code{start.values(fac=fac)}
+#' @param fac.max if no suitable start values are found, \code{fac} is increased by \code{fac.delta}. If this still does not help, \code{fac} is set to \code{NA}, indicating that no relative criteria for checking matrix properties are used
+#' @param fac.delta a numeric value indicating how much \code{fac} should be increased when trying to find start values
+#' @param tries.max used for creating start values; passed as an argument to the function  \code{start.values(tries.max=tries.max)}
 #' @param verbose a logical value indicating whether to print detailed messages and progress updates during the execution of the function
 #' @return A list is returned containing the elements TODO CHECK ADAPT \code{syntax.path}, \code{data}, \code{init}, \code{model.parameters}, \code{par.env}, \code{prior.env}, and \code{start.values.env}.
 
 ## Function definition
-gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.parameters.env=NULL, include.priors=TRUE, prior.env=NULL, chains=NULL, KF=FALSE, verbose=TRUE ){
+gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.parameters.env=NULL, include.priors=TRUE, prior.env=NULL, chains=NULL, KF=FALSE, fac=2, fac.max=4, fac.delta=0.5, tries.max=50, verbose=TRUE ){
 
 	# trigger for no between-(co)variances in mu
 	between.mu <- FALSE
@@ -1193,11 +1197,41 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	} else { # chains>=1
 		jitter <- TRUE
 	}
+	
+	# fac sequence
+	fac.seq <- unique( c( seq( fac, fac.max, by=fac.delta ), NA ) )
+	tries.max2 <- length( fac.seq )
+	
+	keep.trying <- TRUE
+	try <- 1
+	if( verbose ) cat( paste0( "trying to find suitable start values\n" ) )
+	
+	while( keep.trying && try <= tries.max2 ){
+		fac.cur <- fac.seq[ try ]
+		if( verbose ) {
+			cat( paste0( "[",try,"/",tries.max2,"] fac = ",fac.cur," (fac.max = ",fac.max,")\n" ) )
+			# if( try==1 ) cat( paste0( "person ", j, " ", prog.symbol ) ) else cat( "." )
+			flush.console()
+		}
+	
+		inits <- try( start.values( data.env=data.env, chains=chains, jitter=jitter, par.env=par.env, return.init.only=FALSE, tries.max=tries.max, fac=fac.cur, verbose=verbose ) ) # always call with return.init.only=FALSE as this will return a list that is used in the next steps
 
-	inits <- start.values( data.env=data.env, chains=chains, jitter=jitter, par.env=par.env, return.init.only=FALSE, verbose=verbose ) # always call with return.init.only=FALSE as this will return a list that is used in the next steps
+		if( !inherits( inits, "try-error" ) ){
+			keep.trying <- FALSE
+			if( verbose ){
+				cat( paste0( "\nsuccess (with fac = ",fac.cur,")","\n" ) )
+				flush.console()
+			}			
+		}
+	
+		try <- try+1
+	}
+	if( keep.trying ) {
+		stop( paste0( "\nerror: no suitable starting values found\n" ) )
+	}
 
 	# return
-	ret <- list( "data"=dat, "file"=syntax.path, "model_name"=model_name, "init"=inits$init, "model.parameters"=model.parameters, "par.env"=par.env, "prior.env"=used.prior.env, "sv"=inits$sv, "seed.jitter.sv"=inits$seed.jitter.sv ) # "start.values.env"=used.start.values.env
+	ret <- list( "data"=dat, "file"=syntax.path, "model_name"=model_name, "init"=inits$init, "model.parameters"=model.parameters, "par.env"=par.env, "prior.env"=used.prior.env, "sv"=inits$sv, "seed.jitter.sv"=inits$seed.jitter.sv, "fac.used"=fac.cur ) # "start.values.env"=used.start.values.env
 
 }
 

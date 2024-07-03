@@ -13,8 +13,8 @@
   seed = "random",
   par.env = NULL,
   return.init.only = TRUE,
-  tries.max = 10000,
-  fac = 3,
+  tries.max = 100,
+  fac = 2,
   verbose = TRUE
 )
 }

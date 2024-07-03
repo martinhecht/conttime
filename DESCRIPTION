@@ -1,7 +1,7 @@
 Package: conttime
 Type: Package
 Title: Time-varying Continuous-time Modeling
-Version: 0.0.58
+Version: 0.0.59
 Date: 2024-07-03
 Author: Martin Hecht
 Maintainer: Martin Hecht <martin.hecht@hsu-hh.de>

@@ -13,6 +13,10 @@ gen.stan(
   prior.env = NULL,
   chains = NULL,
   KF = FALSE,
+  fac = 2,
+  fac.max = 4,
+  fac.delta = 0.5,
+  tries.max = 50,
   verbose = TRUE
 )
 }
@@ -32,6 +36,14 @@ gen.stan(
 \item{chains}{Argument chains is used only for start value creation. Use \code{start.values()} for optional manual start value creation or to change defaults. If \code{NULL}, default start values are used. If a numeric value >= 1 is provided, jittered default start values are used.}
 
 \item{KF}{use Kalman Filter estimation}
+
+\item{fac}{used for creating start values; passed as an argument to the function  \code{start.values(fac=fac)}}
+
+\item{fac.max}{if no suitable start values are found, \code{fac} is increased by \code{fac.delta}. If this still does not help, \code{fac} is set to \code{NA}, indicating that no relative criteria for checking matrix properties are used}
+
+\item{fac.delta}{a numeric value indicating how much \code{fac} should be increased when trying to find start values}
+
+\item{tries.max}{used for creating start values; passed as an argument to the function  \code{start.values(tries.max=tries.max)}}
 
 \item{verbose}{a logical value indicating whether to print detailed messages and progress updates during the execution of the function}
 }
