@@ -399,23 +399,25 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 						# }
 						# if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
 						tunique.j <- rep(NA,T)
-						if( try < (tries.max-1) ){ # bis vorvorletztes
-							tunique.j[1:Tj.j] <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
-						} else if( try < tries.max ) { # vorletztes
+						if( try < tries.max ){
 							
-							# determine whether already one person with same Tj exists
-							sameTjs <- which( Tj %in% Tj.j )
-							sameTjs.before <- sameTjs[ sameTjs < j ]
-							if( length( sameTjs.before ) > 0 ){
-								tunique.j <- tunique[ ptuniquejp[ sameTjs.before[length(sameTjs.before)], ] ]
-								replaced.by <- "person duplicated from valid person before"
-							} else {
-								tunique.j[1:Tj.j] <- 0:(Tj.j-1) ### ggf. noch mit first.time.points.arg/deltas.arg
-								replaced.by <- paste0( "set to time = ", tunique.j[1], " ... ", tunique.j[Tj.j] )
+							if( try < (tries.max-1) ){ # bis vorvorletztes
+								tunique.j[1:Tj.j] <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
+							} else { # vorletztes
+							
+								# determine whether already one person with same Tj exists
+								sameTjs <- which( Tj %in% Tj.j )
+								sameTjs.before <- sameTjs[ sameTjs < j ]
+								if( length( sameTjs.before ) > 0 ){
+									tunique.j <- tunique[ ptuniquejp[ sameTjs.before[length(sameTjs.before)], ] ]
+									replaced.by <- "person duplicated from valid person before"
+								} else {
+									tunique.j[1:Tj.j] <- 0:(Tj.j-1) ### ggf. noch mit first.time.points.arg/deltas.arg
+									replaced.by <- paste0( "set to time = ", tunique.j[1], " ... ", tunique.j[Tj.j] )
+								}
 							}
-						}
 						
-						if( try < tries.max ){ # bis vorletztes updaten, damit letztes nicht noch mal neu, damit Daten/Design/Properties stimmen
+							# bis vorletztes updaten, damit letztes nicht noch mal neu, damit Daten/Design/Properties stimmen
 							# merge new design into all-person design
 							ptuniquejp[j,] <- NA # NA probably important if Tj differs
 							ptuniquejp[j,1:Tj.j] <- which( tunique %in% tunique.j )
@@ -428,7 +430,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 							}
 						}
 
-					}
+					} # end of else
 					try <- try+1
 					
 				} else {
