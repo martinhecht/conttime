@@ -22,7 +22,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 		# between.mu <- TRUE
 
 		# matrix properties data frame
-		mp <- data.frame( "j"=NA, "p"=NA, "matrix"=NA, "symmetric"=NA, "posdef"=NA, "posdef2"=NA, "possemidef"=NA, "kappa"=NA, "minSVD"=NA, "maxSVD"=NA, "eigenvaluespread"=NA, "rank"=NA, "fullrank"=NA )
+		mp <- data.frame( "j"=NA, "p"=NA, "try"=NA, "matrix"=NA, "symmetric"=NA, "posdef"=NA, "posdef2"=NA, "possemidef"=NA, "kappa"=NA, "minSVD"=NA, "maxSVD"=NA, "eigenvaluespread"=NA, "rank"=NA, "fullrank"=NA )
 		mp <- mp[-1,,drop=FALSE]
 
 		### based on tvct_v1.pdf (2024-04-04)
@@ -231,7 +231,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 			keep.trying <- TRUE
 			try <- 1
 			replaced.by <- NULL
-			while( keep.trying && try <= tries.max ){
+			while( keep.trying & (try <= tries.max) ){
 				if( verbose ) {
 					if( try %% 10 == 0 ){
 						prog.symbol <- paste0( "(",try,"/",tries.max,")" )
@@ -370,8 +370,10 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 					} else {				
 						check13 <- all( mp.j2$eigenvaluespread <= mean(mp.j2$eigenvaluespread) + fac*sd(mp.j2$eigenvaluespread) )
 					}					
-					
-					if( all( c(check5,check6,check7,check8,check9,check10,check11,check12,check13) ) ) {
+# if( try %in% c(99,100) ) browser()
+					all.checks <- all( c(check5,check6,check7,check8,check9,check10,check11,check12,check13) )
+# cat( paste0( "\nac=", all.checks, "" ) )
+					if( all.checks ) {
 						keep.trying <- FALSE
 						if( verbose ){
 							cat( paste0( "\nsuccess (after ",try," iterations)","\n" ) )
@@ -387,7 +389,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 						# tries.max2 <- tries.max
 						# try2 <- 1
 						# while( keep.trying2 && try2 <= tries.max2 ){
-							Tj.j <- Tj[j]
+							# Tj.j <- Tj[j]
 							# env.j <- gen.design( F=F, N=1, T=Tj.j, Tdiv=0, deltas=deltas.arg, first.time.points=first.time.points.arg, verbose=verbose )
 							# ptuniquejp.j <- get( "ptuniquejp", envir=env.j )
 							# tunique.j <- get( "tunique", envir=env.j )
@@ -398,8 +400,11 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 							# try2 <- try2 + 1
 						# }
 						# if( keep.trying2 ) stop( paste0( "did not find new person-specific design for person ", j, " after ", tries.max2, " tries." ) )
-						tunique.j <- rep(NA,T)
+						
 						if( try < tries.max ){
+							
+							Tj.j <- Tj[j]
+							tunique.j <- rep(NA,T)
 							
 							if( try < (tries.max-1) ){ # bis vorvorletztes
 								tunique.j[1:Tj.j] <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
@@ -429,7 +434,8 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 								mp <- mp[-w,]
 							}
 						}
-
+						if( !is.null( replaced.by ) ) cat( paste0( "[", replaced.by , "]" ) )
+						
 					} # end of else
 					try <- try+1
 					
@@ -437,12 +443,13 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 					# if not gen data, then continue in any case
 					keep.trying <- FALSE
 				}
-			
+				
+# cat( paste0( " kt=", keep.trying, "\n" ) )
+				
 			} # end of while loop
 			# if( keep.trying & gen.data ) stop( paste0( "did not find person-specific DT matrices for person ", j, " after ", tries.max, " tries." ) )
 			if( verbose & keep.trying & gen.data ) {
 				cat( paste0( "\ndid not find person-specific DT matrices for person ", j, " after ", tries.max, " tries\n" ) )
-				if( !is.null( replaced.by ) ) cat( paste0( "  (", replaced.by , ")\n" ) )
 			}
 
 		} # end of loop over persons
