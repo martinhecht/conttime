@@ -532,9 +532,9 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	x <- c( x, paste0( "  // not_pos_def_replace_matrix" ) )
     if( F==1 ) {
 		x <- c( x, paste0( "  matrix[F,F] not_pos_def_replace_matrix;" ) )
-		x <- c( x, paste0( "  not_pos_def_replace_matrix[1,1] = 1e-3;" ) )
+		x <- c( x, paste0( "  not_pos_def_replace_matrix[1,1] = 0.5;" ) )
 	} else {
-		x <- c( x, paste0( "  cov_matrix[F] not_pos_def_replace_matrix = diag_matrix(rep_vector(1e-3, F));" ) )
+		x <- c( x, paste0( "  cov_matrix[F] not_pos_def_replace_matrix = diag_matrix(rep_vector(0.5, F));" ) )
 	    x <- c( x, paste0( "  for (i in 1:F) {" ) )
 	    x <- c( x, paste0( "    for (j in 1:F) {" ) )
 	    x <- c( x, paste0( "      if (i != j) {" ) )
