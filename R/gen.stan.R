@@ -211,13 +211,16 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		type <- NULL
 	}
 	# structure dimensions (symbolic)
-	structure.dim          <- c( "matrix[F,F] A0", "matrix[F,F] Achange", "cov_matrix[F] Q0" ) # , "cov_matrix[F] Qchange", "matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ", "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,1] mu0", "matrix[F,1] muchange", "matrix[F,F] Sigmaepsmu", "matrix[F*F,F*F] SigmaepsA"
+	# 0.0.60, lbgfs algorithm complains that Q0 is not pos def, let's try to change from "cov_matrix[F] Q0" to "matrix[F,F] Q0"
+	# structure.dim          <- c( "matrix[F,F] A0", "matrix[F,F] Achange", "cov_matrix[F] Q0" ) # , "cov_matrix[F] Qchange", "matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ", "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,1] mu0", "matrix[F,1] muchange", "matrix[F,F] Sigmaepsmu", "matrix[F*F,F*F] SigmaepsA"
+	structure.dim          <- c( "matrix[F,F] A0", "matrix[F,F] Achange", "matrix[F,F] Q0" ) # , "cov_matrix[F] Qchange", "matrix[F*(F+1)/2,F*(F+1)/2] SigmaepsQ", "matrix[I,F] Delta", "cov_matrix[I] Sigmaeps", "matrix[F,1] mu0", "matrix[F,1] muchange", "matrix[F,F] Sigmaepsmu", "matrix[F*F,F*F] SigmaepsA"
 	names( structure.dim ) <- c( "A0"            , "Achange"            , "Q0"               ) # , "Qchange"              , "SigmaepsQ"                            , "Delta"            , "Sigmaeps"              , "mu0"            , "muchange"            , "Sigmaepsmu"            , "SigmaepsA"                
 
 	# 0.0.45, cov_matrix[F] crashes for F=1
-	if( F==1 ) {
-		structure.dim["Q0"] <- "matrix[F,F] Q0"
-	}
+	# 0.0.60, obsolete because changed some lines before for all F
+	# if( F==1 ) {
+		# structure.dim["Q0"] <- "matrix[F,F] Q0"
+	# }
 
 	if( between.mu ){
 		structure.dim <- c( structure.dim, "matrix[F,F] Sigmamu" )
