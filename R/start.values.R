@@ -213,7 +213,10 @@ start.values <- function( data.env, chains=1, start.values.env=NULL, jitter=TRUE
 		# Q0.jitter      <- get( "Q0", envir=empty.str.env, inherits=FALSE )
 		A0.jitter <- Achange.jitter <- Q0.jitter <- matrix( as.numeric(NA), F, F )		
 		
-		A0.jitter[] <- Achange.jitter[] <- Q0.jitter[] <- "runif(1,-0.25,0.25)"
+		A0.jitter[] <- Q0.jitter[] <- "runif(1,-0.10,0.10)"
+		
+		Achange.jitter[] <- "runif(1,-0.02,0.02)"
+		
 		# diag( A0.jitter ) <- "runif(1,-0.25,0.25)"
 		# Achange.jitter[] <- "runif(1,-0.25,0.25)"
 		# Q0.jitter[] <- "runif(1,-0.25,0.25)"

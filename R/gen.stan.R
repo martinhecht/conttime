@@ -238,8 +238,10 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	}
 
 	# 0.0.63 A0 is not free structure anymore because auto-effects are range-restricted
-	# if( "A0" %in% names( structure.type ) ) structure.type <- structure.type[ !names(structure.type) %in% "A0" ]
+	# also Achange, Q0
 	structure.type["A0"] <- "mixed"
+	structure.type["Achange"] <- "mixed"
+	structure.type["Q0"] <- "mixed"
 
 	# get parameters of mixed structures
 	parameters.of.mixed.structures <- character(0)
@@ -254,7 +256,19 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 					eval(parse(text=paste0("if( is.na( ",st,"[",r,",",c,"] ) ) ",st,"[",r,",",c,"] <- '",par.lab.new,"'")))
 					# prepare range-restriction
 					if( st %in% "A0" & c==r ){
-						range.restr <- c( range.restr, "<upper=-0.05>" )
+						range.restr <- c( range.restr, "<lower=-2, upper=-0.05>" )
+						names( range.restr )[length(range.restr)] <- par.lab.new
+					}
+					if( st %in% "A0" & c!=r ){
+						range.restr <- c( range.restr, "<lower=-1, upper=1>" )
+						names( range.restr )[length(range.restr)] <- par.lab.new
+					}					
+					if( st %in% "Achange" ){
+						range.restr <- c( range.restr, "<lower=-0.05, upper=0.05>" )
+						names( range.restr )[length(range.restr)] <- par.lab.new
+					}
+					if( st %in% "Q0" & c==r ){
+						range.restr <- c( range.restr, "<lower=0.01>" )
 						names( range.restr )[length(range.restr)] <- par.lab.new
 					}
 				}
