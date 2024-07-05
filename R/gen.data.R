@@ -244,8 +244,9 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 			
 				# muj, Eq. 8
 				if( between.mu ){ muj[,1,j] <- rmvnorm( 1, mean=zerovecF, sigma=Sigmamu ) } 
-				
+# if( try==(tries.max) ) browser()
 				for( p in 1:Tj[j] ){
+				
 					# Eq. 11
 					Ajp[,,j,p] <- At[,,ptuniquejp[j,p]]
 					Qjp[,,j,p] <- Qt[,,ptuniquejp[j,p]]
@@ -409,21 +410,51 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 							if( try < (tries.max-1) ){ # bis vorvorletztes
 								tunique.j[1:Tj.j] <- sort( as.numeric( sample( as.character( tunique ), Tj.j ) ) )
 							} else { # vorletztes
-							
+
 								# determine whether already one person with same Tj exists
 								sameTjs <- which( Tj %in% Tj.j )
 								sameTjs.before <- sameTjs[ sameTjs < j ]
 								if( length( sameTjs.before ) > 0 ){
 									tunique.j <- tunique[ ptuniquejp[ sameTjs.before[length(sameTjs.before)], ] ]
-									replaced.by <- "person duplicated from valid person before"
+									replaced.by <- "person duplicated from person before"
 								} else {
 									tunique.j[1:Tj.j] <- 0:(Tj.j-1) ### ggf. noch mit first.time.points.arg/deltas.arg
 									replaced.by <- paste0( "set to time = ", tunique.j[1], " ... ", tunique.j[Tj.j] )
+									# unfortunately here it can happen that the time points 0:Tj.j-1 do not exists
+									# that means all persons need to be updated
+									# new tunique
+									l1 <- length( tunique )
+									tunique.new <- sort( unique( c( tunique, tunique.j ) ) )
+									l2 <- length( tunique.new )
+									if( verbose & l1!=l2 ) cat( paste0( "new time points need to be integrated, before: ", l1 , ", after: ", l2 ,"\n" ) )
+
+									# update persons
+									ptuniquejp.new <- ptuniquejp
+									ptuniquejp.new[] <- NA
+									for( jj in 1:N ){
+										ptuniquejp.new[jj,1:Tj[jj]] <- which( tunique.new %in% tunique[ ptuniquejp[jj,] ] )
+									}
+									tunique <- tunique.new
+									ptuniquejp <- ptuniquejp.new
+									
+									# resize structure
+									Tunique <- length( tunique )
+									At <- array( as.numeric(NA), dim=c(F,F,Tunique) )
+									Qt <- array( as.numeric(NA), dim=c(F,F,Tunique) )
+									### !! check which structure depend on Tunique, e.g., also epsAt, epsQt, epsmut, mut
+									# update time-varying parameters
+									for( p in 1:Tunique ){
+										At[,,p] <- A0 + Achange*tunique[p]
+										Qt[,,p] <- Q0
+									}
 								}
+								if( verbose & !is.null( replaced.by ) ) cat( paste0( "[", replaced.by , "]" ) )
+								replaced.by <- NULL
 							}
-						
+
 							# bis vorletztes updaten, damit letztes nicht noch mal neu, damit Daten/Design/Properties stimmen
 							# merge new design into all-person design
+# if( j==2 & try==4 ) browser()
 							ptuniquejp[j,] <- NA # NA probably important if Tj differs
 							ptuniquejp[j,1:Tj.j] <- which( tunique %in% tunique.j )
 							deltajp[j,] <- NA # NA probably important if Tj differs
@@ -434,7 +465,7 @@ gen.data <- function( design.env, seed="random", value.env=NULL, gen.data=TRUE, 
 								mp <- mp[-w,]
 							}
 						}
-						if( !is.null( replaced.by ) ) cat( paste0( "[", replaced.by , "]" ) )
+
 						
 					} # end of else
 					try <- try+1

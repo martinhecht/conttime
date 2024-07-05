@@ -201,6 +201,8 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		if( "Q0"      %in% ls(envir=model.parameters.env) )      Q0      <- get('Q0'         , envir=model.parameters.env, inherits=FALSE)
 	}
 
+
+
 	### determine structure type for model parameters: free, fixed, mixed (free parameters and fixed values)
 	structure.type <- array( as.character(NA), dim=length(model.parameters) )
 	names( structure.type ) <- model.parameters
@@ -235,15 +237,26 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 		names( par.lab.mixed.str ) <- c( names( par.lab.mixed.str )[-length(par.lab.mixed.str)], "Sigmamu" )
 	}
 
+	# 0.0.63 A0 is not free structure anymore because auto-effects are range-restricted
+	# if( "A0" %in% names( structure.type ) ) structure.type <- structure.type[ !names(structure.type) %in% "A0" ]
+	structure.type["A0"] <- "mixed"
+
 	# get parameters of mixed structures
 	parameters.of.mixed.structures <- character(0)
+	range.restr <- character(0)
 	if( length( wimis <- which( structure.type %in% "mixed" ) ) > 0 ){
 		for( st in names( structure.type[wimis] ) ){
 			# if NA in mixed structure, label with parameter name
 			for( c in 1:eval(parse(text=paste0("ncol(",st,")"))) ) {
 				for( r in 1:eval(parse(text=paste0("nrow(",st,")"))) ){
 					if( !is.null( par.lab.mixed.str ) & (st %in% names( par.lab.mixed.str )) ) par.lab <- par.lab.mixed.str[st] else par.lab <- st
-					eval(parse(text=paste0("if( is.na( ",st,"[",r,",",c,"] ) ) ",st,"[",r,",",c,"] <- '",par.lab,r,c,"'")))
+					par.lab.new <- paste0( par.lab,r,c )
+					eval(parse(text=paste0("if( is.na( ",st,"[",r,",",c,"] ) ) ",st,"[",r,",",c,"] <- '",par.lab.new,"'")))
+					# prepare range-restriction
+					if( st %in% "A0" & c==r ){
+						range.restr <- c( range.restr, "<upper=-0.05>" )
+						names( range.restr )[length(range.restr)] <- par.lab.new
+					}
 				}
 			}				
 			# add parameters to vector
@@ -442,11 +455,18 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 			# eval( parse( text=paste0( "x <- c( x, paste0( '  ",structure.dim[st]," ",st,";' ) )" ) ) )
 			eval( parse( text=paste0( "x <- c( x, paste0( '  ",structure.dim[st],";' ) )" ) ) )
 		}
-	}		
+	}
 	# parameters of mixed structures
-	if( length( parameters.of.mixed.structures ) > 0 ){		
+	if( length( parameters.of.mixed.structures ) > 0 ){
+		# mod range restriction to easily apply
+		if( length( range.restr ) > 0 ){
+			rr <- range.restr[parameters.of.mixed.structures]
+			rr[is.na(rr)] <- ""
+		} else {
+			rr <- NULL
+		}
 		x <- c( x, paste0( "  // parameters of mixed structures" ) )
-		eval( parse( text=paste0("x <- c( x, '  real ",parameters.of.mixed.structures,";' )" ) ) )
+		eval( parse( text=paste0("x <- c( x, '  real",rr," ",parameters.of.mixed.structures,";' )" ) ) )
 	}
 	# epsAt, epsmut
 	# x <- c( x, paste0( "  // epsAt, epsQt, epsmut" ) )
