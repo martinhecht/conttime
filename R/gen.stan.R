@@ -1,4 +1,8 @@
 ## Changelog:
+# MH 0.0.64 2024-05-14: 
+#   -- check which additional structures are available on data.env, if not get them from gen.empty.structures
+#   -- KF disabled
+#   -- user-specified range restrictions
 # MH 2024-04-29: renamed from estimate()
 
 ## Documentation
@@ -10,8 +14,8 @@
 #' @param model.parameters.env an environment containing declarations of model parameters in the matrices A0, Achange, and Q0; if \code{NULL}, the default parameterization is used
 #' @param include.priors a logical value whether priors are added to the Stan code or not
 #' @param prior.env an environment containing priors for the elements of the matrices A0, Achange, and Q0; if \code{NULL}, default priors are used
+#' @param range.res a named list of lower and upper bounds for model parameters, e.g., list( "Achange"=list( "lower"=matrix( -0.05, 2, 2 ), "upper"=matrix( 0.05, 2, 2 ) ) )
 #' @param chains Argument chains is used only for start value creation. Use \code{start.values()} for optional manual start value creation or to change defaults. If \code{NULL}, default start values are used. If a numeric value >= 1 is provided, jittered default start values are used.
-#' @param KF use Kalman Filter estimation
 #' @param fac used for creating start values; passed as an argument to the function  \code{start.values(fac=fac)}
 #' @param fac.max if no suitable start values are found, \code{fac} is increased by \code{fac.delta}. If this still does not help, \code{fac} is set to \code{NA}, indicating that no relative criteria for checking matrix properties are used
 #' @param fac.delta a numeric value indicating how much \code{fac} should be increased when trying to find start values
@@ -20,7 +24,11 @@
 #' @return A list is returned containing the elements TODO CHECK ADAPT \code{syntax.path}, \code{data}, \code{init}, \code{model.parameters}, \code{par.env}, \code{prior.env}, and \code{start.values.env}.
 
 ## Function definition
-gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.parameters.env=NULL, include.priors=TRUE, prior.env=NULL, chains=NULL, KF=FALSE, fac=2, fac.max=4, fac.delta=0.5, tries.max=50, verbose=TRUE ){
+gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.parameters.env=NULL, include.priors=TRUE, prior.env=NULL, chains=NULL, range.res=NULL, fac=2, fac.max=4, fac.delta=0.5, tries.max=50, verbose=TRUE ){
+	
+	# MH 0.0.64 2024-05-14: KF disabled
+	KF <- FALSE
+	# @param KF use Kalman Filter estimation
 
 	# trigger for no between-(co)variances in mu
 	between.mu <- FALSE
@@ -50,8 +58,34 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# no measurement model: F must be I
 	if( F!=I ) stop( paste0( "F = ", F , " is NOT equal to I = ", I , " (this is required for no measurement model)" ) )
 
+
 	# additional.structures <- c( "epsAt", "At", "epsQt", "Qt", "epsmut", "mut", "muj", "Ajp", "Qjp", "mujp", "Ahashjp", "Sigmawjp", "Astarjp", "Qstarjp", "thetajp", "omegajp", "epsjp", "zerovecF", "zerovecF2", "zerovecFF12", "zerovecI", "IF", "IF2", "S1", "S2", "S3"
 	additional.structures <- c( "IF", "IF2", "S1", "S2", "zerovecF", "zerovecF2", "zerovecFF12" ) # , "S3"
+
+	# 0.0.64 2024-08-14
+	# visible bindings for package compilation
+	IF <- IF2 <- S1 <- S2 <- zerovecF <- zerovecF2 <- zerovecFF12 <- NULL
+
+	# 0.0.64 2024-08-14
+	# check which additional structures are available on data.env, if not get them from gen.empty.structures
+	data.env.obj <- ls( envir=data.env )
+	w <- which( data.env.obj %in% additional.structures )
+	if( length( w ) > 0 ) {
+		get.from.data.env <- data.env.obj[w]
+		for( obj in get.from.data.env ){
+			assign( obj, get(obj, envir=data.env, inherits=FALSE) )
+		}
+		get.from.gen.empty <- setdiff( additional.structures, get.from.data.env )
+	} else {
+		get.from.gen.empty <- additional.structures
+	}
+	if( length( get.from.gen.empty ) > 0 ){
+		str.env <- gen.empty.structures( env=data.env )
+		for( obj in get.from.gen.empty ){
+			assign( obj, get(obj, envir=str.env, inherits=FALSE) )
+		}
+	}
+
 	# epsAt       <- get('epsAt'      , envir=data.env, inherits=FALSE)
 	# At          <- get('At'         , envir=data.env, inherits=FALSE)
 	# epsQt       <- get('epsQt'      , envir=data.env, inherits=FALSE)
@@ -69,14 +103,14 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	# thetajp     <- get('thetajp'    , envir=data.env, inherits=FALSE)
 	# omegajp     <- get('omegajp'    , envir=data.env, inherits=FALSE)
 	# epsjp       <- get('epsjp'      , envir=data.env, inherits=FALSE)
-	zerovecF    <- get('zerovecF'   , envir=data.env, inherits=FALSE)
-	zerovecF2   <- get('zerovecF2'  , envir=data.env, inherits=FALSE)
-	zerovecFF12 <- get('zerovecFF12', envir=data.env, inherits=FALSE)
+	##zerovecF    <- get('zerovecF'   , envir=data.env, inherits=FALSE)
+	##zerovecF2   <- get('zerovecF2'  , envir=data.env, inherits=FALSE)
+	##zerovecFF12 <- get('zerovecFF12', envir=data.env, inherits=FALSE)
 	# zerovecI    <- get('zerovecI'   , envir=data.env, inherits=FALSE)
-	IF          <- get('IF'         , envir=data.env, inherits=FALSE)
-	IF2         <- get('IF2'        , envir=data.env, inherits=FALSE)
-	S1          <- get('S1'         , envir=data.env, inherits=FALSE)
-	S2          <- get('S2'         , envir=data.env, inherits=FALSE)
+	##IF          <- get('IF'         , envir=data.env, inherits=FALSE)
+	##IF2         <- get('IF2'        , envir=data.env, inherits=FALSE)
+	##S1          <- get('S1'         , envir=data.env, inherits=FALSE)
+	##S2          <- get('S2'         , envir=data.env, inherits=FALSE)
 	# S3          <- get('S3'         , envir=data.env, inherits=FALSE)
 
 	# ids (j) need to be sorted by number of time points
@@ -243,6 +277,20 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 	structure.type["Achange"] <- "mixed"
 	structure.type["Q0"] <- "mixed"
 
+	# MH 0.0.64 2024-05-14: user-specified range restrictions	
+	# range restriction defaults
+	if( !"A0" %in% names( range.res ) ){
+		range.res[["A0"]] <- list( "lower"=matrix( -1, F, F ), "upper"=matrix( 1, F, F ) )
+		diag( range.res[["A0"]][[1]] ) <- -2
+		diag( range.res[["A0"]][[2]] ) <- -0.05
+	}
+	if( !"Achange" %in% names( range.res ) ){
+		range.res[["Achange"]] <- list( "lower"=matrix( -0.05, F, F ), "upper"=matrix( 0.05, F, F ) )
+	}
+	if( !"Q0" %in% names( range.res ) ){
+		range.res[["Q0"]] <- list( "lower"=matrix( 0.01, F, F ) )
+	}
+
 	# get parameters of mixed structures
 	parameters.of.mixed.structures <- character(0)
 	range.restr <- character(0)
@@ -254,21 +302,32 @@ gen.stan <- function( data.env, syntax.dir=getwd(), model_name="model", model.pa
 					if( !is.null( par.lab.mixed.str ) & (st %in% names( par.lab.mixed.str )) ) par.lab <- par.lab.mixed.str[st] else par.lab <- st
 					par.lab.new <- paste0( par.lab,r,c )
 					eval(parse(text=paste0("if( is.na( ",st,"[",r,",",c,"] ) ) ",st,"[",r,",",c,"] <- '",par.lab.new,"'")))
-					# prepare range-restriction
-					if( st %in% "A0" & c==r ){
-						range.restr <- c( range.restr, "<lower=-2, upper=-0.05>" )
-						names( range.restr )[length(range.restr)] <- par.lab.new
-					}
-					if( st %in% "A0" & c!=r ){
-						range.restr <- c( range.restr, "<lower=-1, upper=1>" )
-						names( range.restr )[length(range.restr)] <- par.lab.new
-					}					
-					if( st %in% "Achange" ){
-						range.restr <- c( range.restr, "<lower=-0.05, upper=0.05>" )
-						names( range.restr )[length(range.restr)] <- par.lab.new
-					}
-					if( st %in% "Q0" & c==r ){
-						range.restr <- c( range.restr, "<lower=0.01>" )
+					
+					## prepare range-restriction
+					# if( st %in% "A0" & c==r ){
+						# range.restr <- c( range.restr, "<lower=-2, upper=-0.05>" )
+						# names( range.restr )[length(range.restr)] <- par.lab.new
+					# }
+					# if( st %in% "A0" & c!=r ){
+						# range.restr <- c( range.restr, "<lower=-1, upper=1>" )
+						# names( range.restr )[length(range.restr)] <- par.lab.new
+					# }					
+					# if( st %in% "Achange" ){
+						# range.restr <- c( range.restr, "<lower=-0.05, upper=0.05>" )
+						# names( range.restr )[length(range.restr)] <- par.lab.new
+					# }
+					# if( st %in% "Q0" & c==r ){
+						# range.restr <- c( range.restr, "<lower=0.01>" )
+						# names( range.restr )[length(range.restr)] <- par.lab.new
+					# }
+					# MH 0.0.64 2024-05-14: user-specified range restrictions
+					lo <- range.res[[st]]$lower[r,c]
+					up <- range.res[[st]]$upper[r,c]
+					loup <- c( ifelse( is.null( lo ), NA, paste0( "lower=", lo ) ) , ifelse( is.null( up ), NA, paste0( "upper=", up ) ) )
+					loup <- na.omit(loup)
+					if( length( loup ) > 0 ){
+						rr.str <- paste0( "<", paste( loup, collapse=", " ), ">" )
+						range.restr <- c( range.restr, rr.str )
 						names( range.restr )[length(range.restr)] <- par.lab.new
 					}
 				}

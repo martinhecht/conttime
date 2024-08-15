@@ -12,7 +12,7 @@ gen.stan(
   include.priors = TRUE,
   prior.env = NULL,
   chains = NULL,
-  KF = FALSE,
+  range.res = NULL,
   fac = 2,
   fac.max = 4,
   fac.delta = 0.5,
@@ -35,7 +35,7 @@ gen.stan(
 
 \item{chains}{Argument chains is used only for start value creation. Use \code{start.values()} for optional manual start value creation or to change defaults. If \code{NULL}, default start values are used. If a numeric value >= 1 is provided, jittered default start values are used.}
 
-\item{KF}{use Kalman Filter estimation}
+\item{range.res}{a named list of lower and upper bounds for model parameters, e.g., list( "Achange"=list( "lower"=matrix( -0.05, 2, 2 ), "upper"=matrix( 0.05, 2, 2 ) ) )}
 
 \item{fac}{used for creating start values; passed as an argument to the function  \code{start.values(fac=fac)}}
 
