@@ -65,8 +65,6 @@ get.stan <- function( fit, stn, true.env=NULL, transformed.parameters=FALSE, sor
 	}
 	rownames(est) <- seq( along=rownames( est ) )
 
-browser()
-
 	# free/fixed values
 	par.list <- sapply( stn$model.parameters, function( par ) get( par, envir=stn$par.env, inherits=FALSE ), simplify=FALSE )
 	par.df <- array.to.df( par.list, stn$model.parameters, value.name="par.label.or.fixed.value" )
