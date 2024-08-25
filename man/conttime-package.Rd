@@ -32,6 +32,7 @@ library( conttime )
 data( example1_data )
 
 # generate Stan syntax and starting values
+set.seed( 1234 )
 stn <- gen.stan( data.env=data.env, syntax.dir=getwd(), model_name="example1", include.priors=FALSE, chains=1, verbose=TRUE )
 
 # compile the model (this may take approximately 2 minutes)
